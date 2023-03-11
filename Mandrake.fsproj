@@ -12,11 +12,11 @@
   <ItemGroup>
     <TrimmerRootDescriptor Include="AssemblyTrimmerRoots.xml" />
     <None Include="AssemblyTrimmerRoots.xml" />
+    <Compile Include="Common.fs" />
+    <Compile Include="Dom5.fs" />
     <Compile Include="Commands.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
-
-  <ItemGroup />
 
   <ItemGroup>
     <PackageReference Include="Spectre.Console" Version="0.46.0" />

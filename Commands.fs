@@ -12,12 +12,6 @@ type Out =
     static member WriteLine(txt: string, ?color: Color option) =
         Panel(txt).RoundedBorder().Collapse().BorderColor(Color.Yellow)
         |> AnsiConsole.Write
-module Task =
-    let map f t = task { let! v = t in return f v }
-    let ignore t = t |> map ignore
-    let wait (t: _ System.Threading.Tasks.Task) = t.Wait()
-    let runSynchronously (t: _ System.Threading.Tasks.Task) = t.Result
-    let waitAll (tasks: _ Task array) = Task.WhenAll(tasks |> Array.map (fun t -> t :> Task))
 
 type Settings() =
     inherit CommandSettings()
@@ -35,19 +29,30 @@ type StartCommand() =
             Panel $"Watching {settings.dataPath}" |> AnsiConsole.Write
             use watcher = new FileSystemWatcher (System.IO.Path.GetFullPath settings.dataPath)
 
+            let mutable tickCounts = []
             let trigger (args: FileSystemEventArgs) = task {
                     do! AnsiConsole.Status().StartAsync($"Setting up battle for {args.Name}", (fun _ -> task { do! Task.Delay 1000 }))
                     Out.WriteLine $"Running battles for {args.FullPath}"
                     do! AnsiConsole.Progress().StartAsync (fun ctx -> task {
                         Out.WriteLine $"Running battles for {settings.exePath} with data {settings.dataPath}"
-                        let startFor name = (task {
-                            let t = ctx.AddTask $"Running '{name}'"
-                            while not t.IsFinished do
-                                do! Task.Delay 30
-                                t.Increment 1.5
-                            })
-                        let! lines = File.ReadAllLinesAsync args.FullPath
-                        do! lines |> Array.filter (not << System.String.IsNullOrWhiteSpace) |> Array.map startFor |> Task.waitAll
+                        let setup name =
+                            let mutable percentage = 0.
+                            let progressBar = ctx.AddTask $"Hosting for '{name}'" // by running C:\usr\bin\steam\steamapps\common\Dominions5\win64\dominions5.exe  -c -T -g Warhammer {name}
+                            fun expectedTicks -> task {
+                                progressBar.Description <- $"Hosting for '{name}', ETA {expectedTicks} seconds" // show latest ETA based on prior completions
+                                let registerProgress tickReached =
+                                    let percentage' = (float tickReached / float expectedTicks) * 100. |> min 97.
+                                    if percentage' > percentage then
+                                        progressBar.Increment (percentage' - percentage)
+                                        percentage <- percentage'
+                                let! total = Dom5.fakeHost name registerProgress
+                                progressBar.Increment 100 // make sure it's done and not just stuck at 99.9%
+                                return total
+                                }
+                        let lines = [| for ix in 1..10 -> $"name{ix}" |> setup |] // File.ReadAllLinesAsync args.FullPath
+                        for line in lines do
+                            let! total = line (if tickCounts.IsEmpty then 100 else tickCounts |> List.map float |> List.average |> int)
+                            tickCounts <- total::tickCounts
                     })
                 }
 
