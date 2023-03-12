@@ -1,4 +1,4 @@
-﻿module UI.ResultsDisplay
+﻿module UI.Executed
 open System
 
 type Msg =

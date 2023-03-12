@@ -14,7 +14,7 @@ open Avalonia.FuncUI.Elmish
 
 type Msg =
     | FileChanged of string
-    | Approve of string * Version2h list list
+    | Approve of game:string * Version2h
 
 type Signals = {
     approved: string * Version2h list list -> unit
@@ -28,12 +28,23 @@ let init _ = {
     queue = Map.empty
     }
 
-let update (msg: Msg) (state: Model) : Model =
+let update (msg: Msg) (model: Model) : Model =
     match msg with
-    | FileChanged file -> notImpl()
+    | FileChanged file ->
+        { model with queue = model.queue.Add (file, []) }
     | Approve (file, versions) -> notImpl()
 
 let view model signals dispatch =
     View.DockPanel [
-        View.TextBlock "AcceptanceQueue placeholder"
+        View.TextBlock "AcceptanceQueue"
+        for KeyValue(file, versions) in model.queue do
+            View.StackPanel [
+                View.TextBlock file
+                for version2h in versions |> List.concat do
+                    match version2h with
+                    | Version2h(fileName, time, descr) ->
+                        View.TextBlock fileName
+                        let onClick = thunk1 dispatch (Approve (file, version2h))
+                        View.Button ("Approve", onClick)
+                ]
         ]

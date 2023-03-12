@@ -11,6 +11,7 @@ open Avalonia.FuncUI.DSL
 open Avalonia.Layout
 open Avalonia.FuncUI.Types
 open Avalonia.FuncUI.Elmish
+open System.Threading.Tasks
 
 module Counter =
     type CounterState = {
@@ -55,6 +56,20 @@ type MainWindow() as this =
         base.Title <- "Counter Example"
         Elmish.Program.mkSimple init update view
         |> Program.withHost this
+        |> Program.withSubscription (fun model ->
+            [   [], (fun dispatch ->
+                        let cancel = new System.Threading.CancellationTokenSource()
+                        let t = task {
+                            while(not cancel.IsCancellationRequested) do
+                                let guid = System.Guid.NewGuid().ToString()
+                                UI.AcceptanceQueue.FileChanged $"test{guid}" |> Acceptance |> dispatch
+                                do! Task.Delay 10000
+                        }
+                        { new System.IDisposable with
+                              member this.Dispose() = ()
+                        })
+                ]
+            )
 #if DEBUG
         |> Program.withConsoleTrace
 #endif
