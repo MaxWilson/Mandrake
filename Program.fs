@@ -3,50 +3,61 @@
 open Avalonia
 open Avalonia.Controls.ApplicationLifetimes
 open Avalonia.Themes.Fluent
+open Elmish
 open Avalonia.FuncUI.Hosts
 open Avalonia.Controls
 open Avalonia.FuncUI
 open Avalonia.FuncUI.DSL
 open Avalonia.Layout
+open Avalonia.FuncUI.Types
+open Avalonia.FuncUI.Elmish
 
-module Main =
+module Counter =
+    type CounterState = {
+        count : int
+    }
 
-    let view () =
-        Component(fun ctx ->
-            let state = ctx.useState 0
+    let init _ = {
+        count = 0
+    }
 
-            DockPanel.create [
-                DockPanel.children [
-                    Button.create [
-                        Button.dock Dock.Bottom
-                        Button.onClick (fun _ -> state.Set(state.Current - 1))
-                        Button.content "-"
-                        Button.horizontalAlignment HorizontalAlignment.Stretch
-                        Button.horizontalContentAlignment HorizontalAlignment.Center
-                    ]
-                    Button.create [
-                        Button.dock Dock.Bottom
-                        Button.onClick (fun _ -> state.Set(state.Current + 1))
-                        Button.content "+"
-                        Button.horizontalAlignment HorizontalAlignment.Stretch
-                        Button.horizontalContentAlignment HorizontalAlignment.Center
-                    ]
-                    TextBlock.create [
-                        TextBlock.dock Dock.Top
-                        TextBlock.fontSize 48.0
-                        TextBlock.verticalAlignment VerticalAlignment.Center
-                        TextBlock.horizontalAlignment HorizontalAlignment.Center
-                        TextBlock.text (string state.Current)
-                    ]
+    type Msg =
+    | Increment
+    | Decrement
+
+    let update (msg: Msg) (state: CounterState) : CounterState =
+        match msg with
+        | Increment -> { state with count =  state.count + 1 }
+        | Decrement -> { state with count =  state.count - 1 }
+
+    let view (state: CounterState) (dispatch): IView =
+        DockPanel.create [
+            DockPanel.children [
+                Button.create [
+                    Button.onClick (fun _ -> dispatch Increment)
+                    Button.content "click to increment"
+                ]
+                Button.create [
+                    Button.onClick (fun _ -> dispatch Decrement)
+                    Button.content "click to decrement"
+                ]
+                TextBlock.create [
+                    TextBlock.dock Dock.Top
+                    TextBlock.text (sprintf "the count is %i" state.count)
                 ]
             ]
-        )
+        ]
 
-type MainWindow() =
+type MainWindow() as this =
     inherit HostWindow()
     do
         base.Title <- "Counter Example"
-        base.Content <- Main.view ()
+        Elmish.Program.mkSimple Counter.init Counter.update Counter.view
+        |> Program.withHost this
+#if DEBUG
+        |> Program.withConsoleTrace
+#endif
+        |> Program.run
 
 type App() =
     inherit Application()
