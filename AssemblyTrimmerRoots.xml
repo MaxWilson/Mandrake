@@ -3,5 +3,4 @@
   <assembly fullname="Spectre.Console.Cli" preserve="all" />
   <!-- No "preserve" attribute and no types specified means preserve all -->
   <assembly fullname="Mandrake" preserve="all"/>
-  <assembly fullname="obj\Debug\net7.0\win-x64\Mandrake.dll" preserve="all"/>
 </linker>
