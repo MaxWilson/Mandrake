@@ -29,7 +29,7 @@ let update (msg: Msg) (state: Model) : Model =
     | Results msg -> { state with results = ResultsDisplay.update msg state.results }
 
 let view model dispatch =
-    View.DockPanel [
+    View.StackPanel [
         AcceptanceQueue.view model.acceptance
             ({ AcceptanceQueue.approved = ExecutionQueue.Execute >> Execution >> dispatch })
             (dispatch << Acceptance)

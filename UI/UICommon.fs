@@ -9,4 +9,5 @@ type Id = Guid
 
 type View =
     static member DockPanel (children: _ list) = DockPanel.create [DockPanel.children children]
+    static member StackPanel (children: _ list) = StackPanel.create [StackPanel.children children]
     static member TextBlock (txt) = TextBlock.create [TextBlock.text txt]
