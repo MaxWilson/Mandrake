@@ -1,5 +1,6 @@
 ﻿module UI.AcceptanceQueue
 
+open System
 open Avalonia
 open Avalonia.Controls.ApplicationLifetimes
 open Avalonia.Themes.Fluent
@@ -21,7 +22,7 @@ type Signals = {
     }
 
 type Model = {
-    queue: Map<string, Version2h list list>
+    queue: Map<string, Version2h list>
     }
 
 let init _ = {
@@ -31,7 +32,10 @@ let init _ = {
 let update (msg: Msg) (model: Model) : Model =
     match msg with
     | FileChanged file ->
-        { model with queue = model.queue.Add (file, []) }
+        let gameDir = System.IO.Path.GetDirectoryName file
+        let game = System.IO.Path.GetFileName gameDir
+        let version = Version2h(file, DateTimeOffset.Now, None)
+        { model with queue = model.queue |> Map.change game (function None -> Some [version] | Some priors -> Some (version::priors)) }
     | Approve (file, versions) -> notImpl()
 
 let view model signals dispatch =
@@ -40,7 +44,7 @@ let view model signals dispatch =
         for KeyValue(file, versions) in model.queue do
             View.StackPanel [
                 View.TextBlock file
-                for version2h in versions |> List.concat do
+                for version2h in versions do
                     match version2h with
                     | Version2h(fileName, time, descr) ->
                         View.TextBlock fileName

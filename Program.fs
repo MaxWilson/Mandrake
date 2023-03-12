@@ -61,9 +61,10 @@ type MainWindow() as this =
                         let cancel = new System.Threading.CancellationTokenSource()
                         let t = task {
                             while(not cancel.IsCancellationRequested) do
-                                let guid = System.Guid.NewGuid().ToString()
-                                UI.AcceptanceQueue.FileChanged $"test{guid}" |> Acceptance |> dispatch
-                                do! Task.Delay 10000
+                                for f in System.IO.Directory.EnumerateFiles(@"C:\Users\wilso\AppData\Roaming\Dominions5\savedgames\Arcanus", "*.2h") do
+                                    let guid = System.Guid.NewGuid().ToString()
+                                    UI.AcceptanceQueue.FileChanged f |> Acceptance |> dispatch
+                                do! Task.Delay 4000
                         }
                         { new System.IDisposable with
                               member this.Dispose() = ()
