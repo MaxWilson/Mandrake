@@ -16,6 +16,11 @@
     <Compile Include="Common.fs" />
     <Compile Include="Dom5.fs" />
     <Compile Include="Commands.fs" />
+    <Compile Include="UI\UICommon.fs" />
+    <Compile Include="UI\AcceptanceQueue.fs" />
+    <Compile Include="UI\ExecutionQueue.fs" />
+    <Compile Include="UI\ResultsDisplay.fs" />
+    <Compile Include="UI\Main.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 

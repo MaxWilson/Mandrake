@@ -48,11 +48,12 @@ module Counter =
             ]
         ]
 
+open UI.Main
 type MainWindow() as this =
     inherit HostWindow()
     do
         base.Title <- "Counter Example"
-        Elmish.Program.mkSimple Counter.init Counter.update Counter.view
+        Elmish.Program.mkSimple init update view
         |> Program.withHost this
 #if DEBUG
         |> Program.withConsoleTrace
