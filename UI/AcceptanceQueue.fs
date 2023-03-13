@@ -38,17 +38,18 @@ let update (msg: Msg) (model: Model) : Model =
         { model with queue = model.queue |> Map.change game (function None -> Some [version] | Some priors -> Some (version::priors)) }
     | Approve (file, versions) -> notImpl()
 
-let view model signals dispatch =
-    View.DockPanel [
-        View.TextBlock "AcceptanceQueue"
-        for KeyValue(file, versions) in model.queue do
-            View.StackPanel [
-                View.TextBlock file
-                for version2h in versions do
-                    match version2h with
-                    | Version2h(fileName, time, descr) ->
-                        View.TextBlock fileName
-                        let onClick = thunk1 dispatch (Approve (file, version2h))
-                        View.Button ("Approve", onClick)
-                ]
-        ]
+let view (model: Model) signals dispatch =
+    View.ScrollViewer <|
+        View.StackPanel [
+            View.TextBlock $"AcceptanceQueue ({model.queue.Count})"
+            for KeyValue(file, versions) in model.queue do
+                View.StackPanel [
+                    View.TextBlock file
+                    for version2h in versions do
+                        match version2h with
+                        | Version2h(fileName, time, descr) ->
+                            View.TextBlock fileName
+                            let onClick = thunk1 dispatch (Approve (file, version2h))
+                            View.Button ("Approve", onClick)
+                    ]
+            ]

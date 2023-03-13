@@ -61,13 +61,19 @@ type MainWindow() as this =
                         let cancel = new System.Threading.CancellationTokenSource()
                         let t = task {
                             while(not cancel.IsCancellationRequested) do
-                                for f in System.IO.Directory.EnumerateFiles(@"C:\Users\wilso\AppData\Roaming\Dominions5\savedgames\Arcanus", "*.2h") do
-                                    let guid = System.Guid.NewGuid().ToString()
-                                    UI.AcceptanceQueue.FileChanged f |> Acceptance |> dispatch
+                                try
+                                    for f in System.IO.Directory.EnumerateFiles(@"C:\Users\wilso\AppData\Roaming\Dominions5\savedgames\Arcanus", "*.2h") do
+                                        UI.AcceptanceQueue.FileChanged f |> Acceptance |> dispatch
+                                with _ -> ()
+                                try
+                                    for f in System.IO.Directory.EnumerateFiles(@"C:\Users\wilso\AppData\Roaming\Dominions5\savedgames\YoungEarth", "*.2h") do
+                                        UI.AcceptanceQueue.FileChanged f |> Acceptance |> dispatch
+                                with _ -> ()
+
                                 do! Task.Delay 4000
                         }
                         { new System.IDisposable with
-                              member this.Dispose() = ()
+                              member this.Dispose() = cancel.Cancel()
                         })
                 ]
             )
