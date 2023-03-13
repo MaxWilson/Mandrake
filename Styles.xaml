@@ -28,6 +28,10 @@
     <Setter Property="Background" Value="#a33225"/>
   </Style>
 
+  <Style Selector="Button:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="purple"/>
+  </Style>
+
   <Style Selector="Button.minus:pressed /template/ ContentPresenter">
     <Setter Property="Background" Value="#822a20"/>
   </Style>
@@ -46,7 +50,7 @@
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="FontStyle" Value="Oblique" />
   </Style>
-  <Style Selector="TextBlock.link:pointerover">
-    <Setter Property="Foreground" Value="White" />
+  <Style Selector="TextBlock:pointerover">
+    <Setter Property="Foreground" Value="Green" />
   </Style>
 </Styles>
