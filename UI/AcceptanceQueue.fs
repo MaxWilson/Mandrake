@@ -22,10 +22,12 @@ type Signals = {
     }
 
 type Model = {
+    watchDirectory: string option
     queue: Map<string, Version2h list>
     }
 
 let init _ = {
+    watchDirectory = None
     queue = Map.empty
     }
 
@@ -53,3 +55,9 @@ let view (model: Model) signals dispatch =
                             View.Button ("Approve", onClick)
                     ]
             ]
+
+let subscribe model : _ Sub =
+    [   [match model.watchDirectory with Some v -> v | None -> ()], fun dispatch -> { new System.IDisposable with
+            member this.Dispose() = ()
+            }
+        ]

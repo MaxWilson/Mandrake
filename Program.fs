@@ -57,24 +57,27 @@ type MainWindow() as this =
         Elmish.Program.mkSimple init update view
         |> Program.withHost this
         |> Program.withSubscription (fun model ->
-            [   [], (fun dispatch ->
-                        let cancel = new System.Threading.CancellationTokenSource()
-                        let t = task {
-                            while(not cancel.IsCancellationRequested) do
-                                try
-                                    for f in System.IO.Directory.EnumerateFiles(@"C:\Users\wilso\AppData\Roaming\Dominions5\savedgames\Arcanus", "*.2h") do
-                                        UI.AcceptanceQueue.FileChanged f |> Acceptance |> dispatch
-                                with _ -> ()
-                                try
-                                    for f in System.IO.Directory.EnumerateFiles(@"C:\Users\wilso\AppData\Roaming\Dominions5\savedgames\YoungEarth", "*.2h") do
-                                        UI.AcceptanceQueue.FileChanged f |> Acceptance |> dispatch
-                                with _ -> ()
+            Sub.batch [
+                Sub.map "acceptance" Acceptance (UI.AcceptanceQueue.subscribe model.acceptance)
+                [   [], (fun dispatch ->
+                    let cancel = new System.Threading.CancellationTokenSource()
+                    let t = task {
+                        while(not cancel.IsCancellationRequested) do
+                            try
+                                for f in System.IO.Directory.EnumerateFiles(@"C:\Users\wilso\AppData\Roaming\Dominions5\savedgames\Arcanus", "*.2h") do
+                                    UI.AcceptanceQueue.FileChanged f |> Acceptance |> dispatch
+                            with _ -> ()
+                            try
+                                for f in System.IO.Directory.EnumerateFiles(@"C:\Users\wilso\AppData\Roaming\Dominions5\savedgames\YoungEarth", "*.2h") do
+                                    UI.AcceptanceQueue.FileChanged f |> Acceptance |> dispatch
+                            with _ -> ()
 
-                                do! Task.Delay 4000
-                        }
-                        { new System.IDisposable with
-                              member this.Dispose() = cancel.Cancel()
-                        })
+                            do! Task.Delay 4000
+                    }
+                    { new System.IDisposable with
+                            member this.Dispose() = cancel.Cancel()
+                    })
+                    ]
                 ]
             )
 #if DEBUG
