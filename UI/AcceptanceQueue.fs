@@ -43,7 +43,10 @@ let update (msg: Msg) (model: Model) : Model =
 let view (model: Model) signals dispatch =
     View.ScrollViewer <|
         View.StackPanel [
-            View.TextBlock $"AcceptanceQueue ({model.queue.Count})"
+            TextBlock.create [
+                TextBlock.classes ["title"]
+                TextBlock.text $"AcceptanceQueue ({model.queue.Count})"
+                ]
             for KeyValue(file, versions) in model.queue do
                 View.StackPanel [
                     View.TextBlock file

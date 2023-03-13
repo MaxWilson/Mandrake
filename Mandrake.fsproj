@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <TrimmerRootDescriptor Include="AssemblyTrimmerRoots.xml" />
+    <AvaloniaResource Include="**\*.xaml" />
     <None Include="AssemblyTrimmerRoots.xml" />
     <Compile Include="Common.fs" />
     <Compile Include="Dom5.fs" />
