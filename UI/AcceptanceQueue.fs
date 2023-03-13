@@ -12,6 +12,8 @@ open Avalonia.FuncUI.DSL
 open Avalonia.Layout
 open Avalonia.FuncUI.Types
 open Avalonia.FuncUI.Elmish
+open System.IO
+open System.Threading.Tasks
 
 type Msg =
     | FileChanged of string
@@ -22,12 +24,10 @@ type Signals = {
     }
 
 type Model = {
-    watchDirectory: string option
     queue: Map<string, Version2h list>
     }
 
 let init _ = {
-    watchDirectory = None
     queue = Map.empty
     }
 
@@ -59,8 +59,18 @@ let view (model: Model) signals dispatch =
                     ]
             ]
 
-let subscribe model : _ Sub =
-    [   [match model.watchDirectory with Some v -> v | None -> ()], fun dispatch -> { new System.IDisposable with
-            member this.Dispose() = ()
-            }
+let subscribe (settings: Settings.FileSettings) : _ Sub =
+    [   [match settings.dataDirectory with Some v -> v | None -> ()],
+        fun dispatch ->
+            let watcher = new FileSystemWatcher (System.IO.Path.GetFullPath settings.dataDirectory.Value)
+            let trigger (file: FileSystemEventArgs) = task {
+                dispatch (FileChanged file.FullPath)
+                }
+            watcher.Changed.Add (trigger >> ignore)
+            watcher.Created.Add (trigger >> ignore)
+            watcher.EnableRaisingEvents <- true
+
+            { new System.IDisposable with
+                member this.Dispose() = watcher.Dispose()
+                }
         ]

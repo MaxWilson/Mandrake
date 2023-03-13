@@ -1,4 +1,4 @@
-﻿namespace CounterApp
+namespace CounterApp
 
 open Avalonia
 open Avalonia.Controls.ApplicationLifetimes
@@ -58,7 +58,7 @@ type MainWindow() as this =
         |> Program.withHost this
         |> Program.withSubscription (fun model ->
             Sub.batch [
-                Sub.map "acceptance" Acceptance (UI.AcceptanceQueue.subscribe model.acceptance)
+                Sub.map "acceptance" Acceptance (UI.AcceptanceQueue.subscribe model.fileSettings)
                 [   [], (fun dispatch ->
                     let cancel = new System.Threading.CancellationTokenSource()
                     let t = task {
@@ -91,7 +91,7 @@ type App() =
     override this.Initialize() =
         this.Styles.Add (FluentTheme())
         this.RequestedThemeVariant <- Styling.ThemeVariant.Dark
-        this.Styles.Load "avares://Mandrake/Styles.xaml"
+        this.Styles.Load "avares://Mandrake/UI/Styles.xaml"
 
     override this.OnFrameworkInitializationCompleted() =
         match this.ApplicationLifetime with

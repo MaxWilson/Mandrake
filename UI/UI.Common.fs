@@ -1,5 +1,5 @@
 ﻿[<AutoOpen>]
-module UICommon
+module UI.Common
 open System
 open Avalonia.Controls
 open Avalonia.FuncUI.DSL

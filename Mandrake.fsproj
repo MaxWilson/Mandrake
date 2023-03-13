@@ -13,12 +13,15 @@
 
   <ItemGroup>
     <TrimmerRootDescriptor Include="AssemblyTrimmerRoots.xml" />
-    <AvaloniaResource Include="**\*.xaml" />
     <None Include="AssemblyTrimmerRoots.xml" />
+    <None Include="Scratch.fsx" />
     <Compile Include="Common.fs" />
+    <Compile Include="Settings.fs" />
     <Compile Include="Dom5.fs" />
     <Compile Include="Commands.fs" />
-    <Compile Include="UI\UICommon.fs" />
+    <AvaloniaResource Include="**\*.xaml" />
+    <Compile Include="UI\UI.Common.fs" />
+    <Compile Include="UI\UI.Settings.fs" />
     <Compile Include="UI\AcceptanceQueue.fs" />
     <Compile Include="UI\ExecutionQueue.fs" />
     <Compile Include="UI\Executed.fs" />
@@ -31,6 +34,7 @@
     <PackageReference Include="Avalonia.FuncUI" Version="0.6.0-preview9" />
     <PackageReference Include="Avalonia.FuncUI.Elmish" Version="0.6.0-preview9" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.0.0-preview5" />
+    <PackageReference Include="Thoth.Json.Net" Version="11.0.0" />
   </ItemGroup>
 
 </Project>
