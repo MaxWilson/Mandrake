@@ -4,7 +4,15 @@ open Avalonia.FuncUI.DSL
 open Avalonia.Controls
 open Avalonia.FuncUI.Types
 
+type Msg =
+    | ShowSettings
+    | ReceiveFileSettings of Settings.FileSettings
+    | Acceptance of AcceptanceQueue.Msg
+    | Execution of ExecutionQueue.Msg
+    | Results of Executed.Msg
+
 type Model = {
+    showSettings: bool
     fileSettings: Settings.FileSettings
     acceptance: AcceptanceQueue.Model
     execution: ExecutionQueue.Model
@@ -12,32 +20,31 @@ type Model = {
     }
 
 let init arg =
+    let settings = Settings.getFileSettings()
     {
-        fileSettings = Settings.getFileSettings()
-        acceptance = AcceptanceQueue.init arg
+        showSettings = false
+        fileSettings = settings
+        acceptance = AcceptanceQueue.init settings
         execution = ExecutionQueue.init arg
         results = Executed.init arg
         }
 
-type Msg =
-    | ReceiveFileSettings of Settings.FileSettings
-    | Acceptance of AcceptanceQueue.Msg
-    | Execution of ExecutionQueue.Msg
-    | Results of Executed.Msg
-
 let update (msg: Msg) (state: Model) : Model =
     match msg with
-    | ReceiveFileSettings fileSettings -> { state with fileSettings = fileSettings }
+    | ShowSettings -> { state with showSettings = true }
+    | ReceiveFileSettings fileSettings -> { state with fileSettings = fileSettings; showSettings = false }
     | Acceptance msg -> { state with acceptance = AcceptanceQueue.update msg state.acceptance }
     | Execution msg -> { state with execution = ExecutionQueue.update msg state.execution }
     | Results msg -> { state with results = Executed.update msg state.results }
 
 let view (model: Model) dispatch : IView =
     match model.fileSettings with
-    | { exePath = Some exePath; dataDirectory = Some dataDirectory } ->
+    | { exePath = Some exePath; dataDirectory = Some dataDirectory } when not model.showSettings ->
         View.DockPanel [
             AcceptanceQueue.view model.acceptance
-                ({ AcceptanceQueue.approved = ExecutionQueue.Execute >> Execution >> dispatch })
+                ({  AcceptanceQueue.approved = ExecutionQueue.Execute >> Execution >> dispatch
+                    AcceptanceQueue.showSettings = thunk1 dispatch ShowSettings
+                    })
                 (dispatch << Acceptance)
             ExecutionQueue.view model.acceptance
                 ({ ExecutionQueue.finished = Executed.Queue >> Results >> dispatch })

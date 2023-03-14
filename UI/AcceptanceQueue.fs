@@ -21,13 +21,14 @@ type Msg =
 
 type Signals = {
     approved: string * Version2h list list -> unit
+    showSettings: unit -> unit
     }
 
 type Model = {
     queue: Map<string, Version2h list>
     }
 
-let init _ = {
+let init (settings: Settings.FileSettings) = {
     queue = Map.empty
     }
 
@@ -43,9 +44,12 @@ let update (msg: Msg) (model: Model) : Model =
 let view (model: Model) signals dispatch =
     View.ScrollViewer <|
         View.StackPanel [
-            TextBlock.create [
-                TextBlock.classes ["title"]
-                TextBlock.text $"AcceptanceQueue ({model.queue.Count})"
+            View.StackPanel' [StackPanel.orientation Orientation.Horizontal] [
+                TextBlock.create [
+                    TextBlock.classes ["title"]
+                    TextBlock.text $"AcceptanceQueue ({model.queue.Count})"
+                    ]
+                View.Button("Settings", thunk1 signals.showSettings ())
                 ]
             for KeyValue(file, versions) in model.queue do
                 View.StackPanel [
