@@ -1,40 +1,16 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>WinExe</OutputType>
-    <OutputType Condition=" '$(Configuration)' == 'Debug'">Exe</OutputType>
+    <OutputType>Exe</OutputType>
     <TargetFramework>net7.0</TargetFramework>
-    <PublishSingleFile>true</PublishSingleFile>
-    <SelfContained>true</SelfContained>
-    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
-    <PublishTrimmed>true</PublishTrimmed>
-    <TrimMode>partial</TrimMode>
   </PropertyGroup>
 
   <ItemGroup>
-    <TrimmerRootDescriptor Include="AssemblyTrimmerRoots.xml" />
-    <None Include="AssemblyTrimmerRoots.xml" />
     <None Include="Scratch.fsx" />
     <Compile Include="Common.fs" />
     <Compile Include="Settings.fs" />
     <Compile Include="Dom5.fs" />
-    <Compile Include="Commands.fs" />
-    <AvaloniaResource Include="**\*.xaml" />
-    <Compile Include="UI\UI.Common.fs" />
-    <Compile Include="UI\UI.Settings.fs" />
-    <Compile Include="UI\AcceptanceQueue.fs" />
-    <Compile Include="UI\ExecutionQueue.fs" />
-    <Compile Include="UI\Executed.fs" />
-    <Compile Include="UI\Main.fs" />
     <Compile Include="Program.fs" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Avalonia.Desktop" Version="11.0.0-preview5" />
-    <PackageReference Include="Avalonia.FuncUI" Version="0.6.0-preview9" />
-    <PackageReference Include="Avalonia.FuncUI.Elmish" Version="0.6.0-preview9" />
-    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.0.0-preview5" />
-    <PackageReference Include="Thoth.Json.Net" Version="11.0.0" />
   </ItemGroup>
 
 </Project>
