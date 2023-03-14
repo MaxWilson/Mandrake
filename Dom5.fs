@@ -1,7 +1,100 @@
-﻿module Dom5
+module Dom5
 
+open System
+open System.IO
 open System.Threading.Tasks
-let r = System.Random()
+let r = Random()
+
+type FileName = string // E.g. "mid_marignon.2h", not a full path.
+type FullPath = string
+
+type OrdersVersion = {
+    id: Guid
+    fileName: FileName
+    time: DateTime // file system is kept in datetimes, no offset
+    nickName: string option
+    description: string option
+    approvedForExecution: bool
+    copiedFileLocation: FullPath
+    }
+
+type GameTurn = {
+    id: Guid
+    name: string // file system is kept in datetimes, no offset
+    originalDirectory: FullPath
+    originalFiles: FileName list
+    copiedDirectory: FullPath option
+    turnTime: DateTime
+    orders: OrdersVersion list
+    }
+
+let createOrders (file: FullPath) =
+    let copyDest = Path.ChangeExtension(Path.GetTempFileName(), "mandrake")
+    File.Copy(file, copyDest)
+    {
+        id = Guid.NewGuid()
+        fileName = file
+        time = File.GetLastWriteTime file
+        nickName = None
+        description = None
+        approvedForExecution = false
+        copiedFileLocation = copyDest // not necessarily in the same place as the game copiedDirectory, because it doesn't matter as long as we can make new Dom5 directories for them in the same place
+        }
+
+let ignoreThisFile (file: FullPath) =
+    Path.GetDirectoryName file <> "newlords"
+
+let setup (settings: Settings.FileSettings) = backgroundTask {
+    // scan C:\Users\wilso\AppData\Roaming\Dominions5\ or whatever for saved games
+    let uiSynchronizationContext = System.Threading.SynchronizationContext.Current
+    let games =
+        Directory.GetFiles(settings.dataDirectory.Value, "ftherlnd", System.IO.SearchOption.AllDirectories)
+        |> Array.filter ignoreThisFile
+        |> Array.append (Directory.GetFiles(settings.dataDirectory.Value, "*.trn", System.IO.SearchOption.AllDirectories))
+        |> Array.append (Directory.GetFiles(settings.dataDirectory.Value, "*.2h", System.IO.SearchOption.AllDirectories))
+        |> Array.groupBy (Path.GetDirectoryName)
+        |> Array.map (fun (dir, files: string array) ->
+            {
+                id = Guid.NewGuid()
+                name = Path.GetFileName dir
+                originalDirectory = dir
+                originalFiles = files |> Array.map Path.GetFileName |> List.ofArray
+                copiedDirectory = None
+                turnTime = files |> Array.maxBy' File.GetLastWriteTime
+                orders = []
+                })
+    let tryCreate ix game =
+        try
+            // copy to C:\Users\wilso\AppData\Local\Temp\ or whatever
+            let copiedPath = Path.Combine(Path.GetTempPath(), "Mandrake", game.name, ix.ToString())
+            try
+                Directory.Delete(copiedPath, true)
+            with _ -> ()
+            Directory.CreateDirectory(copiedPath) |> ignore
+            for file in game.originalFiles do
+                File.Copy(Path.Combine(game.originalDirectory, file), Path.Combine(copiedPath, file))
+            let orders =
+                game.originalFiles
+                |> List.filter (fun file -> Path.GetExtension file = ".2h")
+                |> List.map (fun fileName -> Path.Combine(game.originalDirectory, fileName) |> createOrders)
+            { game with copiedDirectory = Some copiedPath; orders = orders }
+        with exn ->
+            Console.Error.WriteLine $"Error creating game: {exn}"
+            game
+    do! Async.SwitchToContext uiSynchronizationContext
+    return [
+        for ix, game in games |> Array.mapi Tuple2.create do
+            tryCreate ix game
+        ]
+    }
+
+let receiveOrders (games: GameTurn list) (file: FullPath) = backgroundTask {
+    match games |> List.tryFind (fun game -> game.originalDirectory = Path.GetDirectoryName file) with
+    | Some game ->
+        return game.id, createOrders file
+    | None ->
+        return shouldntHappen() // shouldn't happen unless someone is copying .2h files around manually
+    }
 
 let fakeHost gameName feedback = task {
     let mutable ticks = 0

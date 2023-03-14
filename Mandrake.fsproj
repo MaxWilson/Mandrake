@@ -1,19 +1,10 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>WinExe</OutputType>
-    <OutputType Condition=" '$(Configuration)' == 'Debug'">Exe</OutputType>
+    <OutputType>Exe</OutputType>
     <TargetFramework>net7.0</TargetFramework>
-    <PublishSingleFile>true</PublishSingleFile>
-    <SelfContained>true</SelfContained>
-    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
-    <PublishTrimmed>true</PublishTrimmed>
-    <TrimMode>partial</TrimMode>
   </PropertyGroup>
-
   <ItemGroup>
-    <TrimmerRootDescriptor Include="AssemblyTrimmerRoots.xml" />
-    <None Include="AssemblyTrimmerRoots.xml" />
     <None Include="Scratch.fsx" />
     <Compile Include="Common.fs" />
     <Compile Include="Settings.fs" />

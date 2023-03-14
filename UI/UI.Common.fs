@@ -1,4 +1,4 @@
-﻿[<AutoOpen>]
+[<AutoOpen>]
 module UI.Common
 open System
 open Avalonia.Controls
@@ -11,6 +11,8 @@ type Id = Guid
 type View =
     static member DockPanel (children: _ list) = DockPanel.create [DockPanel.children children]
     static member StackPanel (children: _ list) = StackPanel.create [StackPanel.children children]
+    static member StackPanel' properties (children: _ list) = StackPanel.create ((StackPanel.children children)::properties)
+    static member StackHorizontal (children: _ list) = StackPanel.create ([StackPanel.children children; StackPanel.orientation Avalonia.Layout.Orientation.Horizontal])
     static member TextBlock (txt) = TextBlock.create [TextBlock.text txt]
     static member Button (txt: string, onClick) = Button.create [Button.content txt; Button.onClick onClick]
     static member ScrollViewer (content: IView) = ScrollViewer.create [ScrollViewer.content content]
