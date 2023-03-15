@@ -5,16 +5,16 @@ Directory.GetFiles(@"C:\usr\bin", "Dom*.exe", EnumerationOptions(RecurseSubdirec
 
 #r "nuget: Thoth.Json.Net"
 
-let games () =
-    let dir = @"C:\Users\wilso\AppData\Roaming\Dominions5\"
-    Directory.GetFiles(dir, "ftherlnd", System.IO.SearchOption.AllDirectories)
-        |> Array.append (Directory.GetFiles(dir, "*.trn", System.IO.SearchOption.AllDirectories))
-        |> Array.groupBy (Path.GetDirectoryName)
-        |> Array.map (fun (dir, files: string array) -> {|
-            name = Path.GetFileName dir
-            originalDirectory = dir
-            originalFiles = files |> Array.map Path.GetFileName
-            copiedDirectory = None
-            turnTime = DateTimeOffset.Now
-            orders = [] |})
-games<obj, obj>()
+let permutations (groups: 't list list) =
+    let rec recur (lst: 't list list): 't list list =
+        match lst with
+        | [] -> []
+        | head::tail -> [
+            for item in head do
+                for t in recur tail do
+                    yield! item::t
+            ]
+    recur [] groups
+
+permutations [[1;2;3];[10]; [7;9;12;19]]
+

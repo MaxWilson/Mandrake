@@ -24,7 +24,7 @@ type Msg =
     | Approve of game:Id * orders: Id
 
 type Signals = {
-    approved: string * Version2h list list -> unit
+    approved: GameTurn * OrdersVersion list -> unit
     showSettings: unit -> unit
     }
 
@@ -73,6 +73,35 @@ let update (msg: Msg) (model: Model) : Model =
     | _ -> ()
     model
 
+let permutations (groups: 't list list) =
+    let rec recur (lst: 't list list): 't list list =
+        match lst with
+        | [] -> []
+        | [final] ->
+            // if there are N options in the final list item, then we want to return N lists.
+            // [[a;b;c]] becomes [[a];[b];[c]]
+            final |> List.map (fun item -> [item])
+        | head::tail ->
+            let (result: 't list list) = [
+                for item in head do
+                    for (rest: 't list) in recur (tail: 't list list) do
+                        item::rest
+                ]
+            result
+    recur groups
+
+let approve dispatch (signals: Signals) (game: GameTurn) (orders: OrdersVersion) =
+    // update the acceptance queue UI
+    dispatch (Approve (game.id, orders.id))
+    // now, send items to execution queue, grouped with suitable approved opponent .2h files
+    let partnerGroups =
+        game.orders |> List.filter (fun o -> o.fileName <> orders.fileName && o.approvedForExecution)
+        |> List.groupBy (fun o -> o.fileName)
+        |> List.map snd
+    for (opponents: OrdersVersion list) in partnerGroups |> permutations do
+        let participants = orders::opponents
+        signals.approved(game, opponents)
+
 let view (model: Model) signals dispatch =
     View.ScrollViewer <|
         View.StackPanel [
@@ -100,7 +129,8 @@ let view (model: Model) signals dispatch =
                                     CheckBox.isChecked orders.approvedForExecution
                                     CheckBox.isEnabled false
                                     ]
-                                let onClick = thunk1 dispatch (Approve (game.id, orders.id))
+                                let onClick _ =
+                                    approve dispatch signals game orders
                                 Button.create [
                                     Button.content "Approve"
                                     Button.onClick onClick

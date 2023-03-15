@@ -1,8 +1,9 @@
-﻿module UI.ExecutionQueue
+module UI.ExecutionQueue
 open System
+open DataTypes
 
 type Msg =
-    | Execute of game: string * Version2h list list
+    | Execute of game: GameTurn * OrdersVersion list
     | Finished of Id
 
 type Signals = {
