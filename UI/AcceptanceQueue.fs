@@ -15,6 +15,7 @@ open Avalonia.FuncUI.Elmish
 open System.IO
 open System.Threading.Tasks
 open Avalonia.Threading
+open DataTypes
 open Dom5
 
 type Msg =
@@ -28,20 +29,20 @@ type Signals = {
     }
 
 type Model = {
-    gameTurns: Dom5.GameTurn list option
+    gameTurns: GameTurn list option
     }
 
 let init (settings: Settings.FileSettings) : _ * _ Cmd =
+    let gameTurns = Settings.getGameTurns()
     {
-        gameTurns = None
+        gameTurns = gameTurns
         },
     [fun dispatch ->
-        task {
-            let! gameTurns = Dom5.setup settings
+        backgroundTask {
+            let! gameTurns = Dom5.setup gameTurns settings
             do! Dispatcher.UIThread.InvokeAsync (fun () ->
                 dispatch (Initialize gameTurns))
             } |> ignore
-        ()
         ]
 
 let update (msg: Msg) (model: Model) : Model =
@@ -52,19 +53,25 @@ let update (msg: Msg) (model: Model) : Model =
                     (List.map (fun game ->
                         if game.id = id then f game else game)))
             }
-    let updateOrders f (game: Dom5.GameTurn) =
+    let updateOrders f (game: GameTurn) =
         { game with orders = f game.orders }
     let updateOrder id f orders =
-        orders |> List.map (fun (order: Dom5.OrdersVersion) ->
+        orders |> List.map (fun (order: OrdersVersion) ->
                 if order.id = id then f order else order
                 )
-    match msg with
-    | Initialize gameTurns -> { model with gameTurns = Some gameTurns }
-    | NewVersionReceived (gameId, orders) ->
-        model |> (updateGame gameId (updateOrders (fun allorders -> orders::allorders)))
-    | Approve (gameId, ordersId) ->
-        let approve order = { order with approvedForExecution = true }
-        model |> (updateGame gameId (updateOrders (updateOrder ordersId approve)))
+    let model =
+        match msg with
+        | Initialize gameTurns -> { model with gameTurns = Some gameTurns }
+        | NewVersionReceived (gameId, orders) ->
+            model |> (updateGame gameId (updateOrders (fun allorders -> orders::allorders)))
+        | Approve (gameId, ordersId) ->
+            let approve order = { order with approvedForExecution = true }
+            model |> (updateGame gameId (updateOrders (updateOrder ordersId approve)))
+    match model.gameTurns, msg with
+    | Some turns, (NewVersionReceived _ | Approve _) ->
+        backgroundTask { turns |> Settings.saveGameTurns } |> ignore
+    | _ -> ()
+    model
 
 let view (model: Model) signals dispatch =
     View.ScrollViewer <|

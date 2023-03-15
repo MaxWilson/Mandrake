@@ -26,7 +26,7 @@ type MainWindow() as this =
                 | Some turns, { exePath = Some exePath; dataDirectory = Some dataDirectory } ->
                     // we want to resubscribe if either the settings change or a new game gets created
                     let prefix = turns |> List.map (fun gt -> gt.name) |> List.append [dataDirectory; exePath] |> String.concat ";"
-                    Sub.map "acceptance" Acceptance (UI.AcceptanceQueue.subscribe turns model.fileSettings)
+                    Sub.map prefix Acceptance (UI.AcceptanceQueue.subscribe turns model.fileSettings)
                 | _ -> ()
                 ]
             )

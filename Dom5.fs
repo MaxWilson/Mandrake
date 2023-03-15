@@ -3,30 +3,9 @@ module Dom5
 open System
 open System.IO
 open System.Threading.Tasks
+open DataTypes
+
 let r = Random()
-
-type FileName = string // E.g. "mid_marignon.2h", not a full path.
-type FullPath = string
-
-type OrdersVersion = {
-    id: Guid
-    fileName: FileName
-    time: DateTime // file system is kept in datetimes, no offset
-    nickName: string option
-    description: string option
-    approvedForExecution: bool
-    copiedFileLocation: FullPath
-    }
-
-type GameTurn = {
-    id: Guid
-    name: string // file system is kept in datetimes, no offset
-    originalDirectory: FullPath
-    originalFiles: FileName list
-    copiedDirectory: FullPath option
-    turnTime: DateTime
-    orders: OrdersVersion list
-    }
 
 let createOrders (file: FullPath) =
     let copyDest = Path.ChangeExtension(Path.GetTempFileName(), "mandrake")
@@ -44,14 +23,14 @@ let createOrders (file: FullPath) =
 let ignoreThisFile (file: FullPath) =
     Path.GetDirectoryName file <> "newlords"
 
-let setup (settings: Settings.FileSettings) = backgroundTask {
+let setup (gameTurns: GameTurn list option) (settings: Settings.FileSettings) : GameTurn list Task = backgroundTask {
     // scan C:\Users\wilso\AppData\Roaming\Dominions5\ or whatever for saved games
     let uiSynchronizationContext = System.Threading.SynchronizationContext.Current
     let games =
         Directory.GetFiles(settings.dataDirectory.Value, "ftherlnd", System.IO.SearchOption.AllDirectories)
-        |> Array.filter ignoreThisFile
         |> Array.append (Directory.GetFiles(settings.dataDirectory.Value, "*.trn", System.IO.SearchOption.AllDirectories))
         |> Array.append (Directory.GetFiles(settings.dataDirectory.Value, "*.2h", System.IO.SearchOption.AllDirectories))
+        |> Array.filter ignoreThisFile
         |> Array.groupBy (Path.GetDirectoryName)
         |> Array.map (fun (dir, files: string array) ->
             {
@@ -84,7 +63,11 @@ let setup (settings: Settings.FileSettings) = backgroundTask {
     do! Async.SwitchToContext uiSynchronizationContext
     return [
         for ix, game in games |> Array.mapi Tuple2.create do
-            tryCreate ix game
+            match gameTurns |> Option.bind (List.tryFind (fun gameTurn -> gameTurn.name = game.name)) with
+            | None ->
+                tryCreate ix game
+            | Some game ->
+                game
         ]
     }
 
