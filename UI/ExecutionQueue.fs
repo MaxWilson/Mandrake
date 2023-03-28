@@ -3,26 +3,27 @@ open System
 open DataTypes
 
 type Msg =
-    | Execute of game: GameTurn * OrdersVersion list
-    | Finished of Id
+    | Queue of game: ExecutableGameTurn
+    | UpdateProgress of percentage:int
+    | Finished of FullPath
 
 type Signals = {
-    finished: string * Version2h list * DateTimeOffset -> unit
+    finished: ExecutableGameTurn -> unit
     }
 
 type Model = {
-    todo: (string * Version2h list * DateTimeOffset) Queue.d
-    inProgress: (Id * string * Version2h list * DateTimeOffset) Queue.d
+    todo: ExecutableGameTurn Queue.d
+    inProgress: {| current: ExecutableGameTurn; percentDone: int |} option
     }
 
 let init _ = {
     todo = Queue.empty
-    inProgress = Queue.empty
+    inProgress = None
     }
 
 let update (msg: Msg) (state: Model) : Model =
     match msg with
-    | Execute (game, versions) -> notImpl()
+    | Queue game -> { model with todo = model.todo |> Queue.append game }
     | Finished id -> notImpl()
 
 let view model signals dispatch =

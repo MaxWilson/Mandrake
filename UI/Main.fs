@@ -44,7 +44,7 @@ let view (model: Model) dispatch : IView =
     | { exePath = Some exePath; dataDirectory = Some dataDirectory } when not model.showSettings ->
         View.DockPanel [
             AcceptanceQueue.view model.acceptance
-                ({  AcceptanceQueue.approved = ExecutionQueue.Execute >> Execution >> dispatch
+                ({  AcceptanceQueue.approved = ExecutionQueue.Queue >> Execution >> dispatch
                     AcceptanceQueue.showSettings = thunk1 dispatch ShowSettings
                     })
                 (dispatch << Acceptance)

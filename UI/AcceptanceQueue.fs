@@ -24,7 +24,7 @@ type Msg =
     | Approve of game:Id * orders: Id
 
 type Signals = {
-    approved: GameTurn * OrdersVersion list -> unit
+    approved: ExecutableGameTurn -> unit
     showSettings: unit -> unit
     }
 

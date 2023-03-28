@@ -14,12 +14,20 @@ type OrdersVersion = {
     copiedFileLocation: FullPath
     }
 
+// game turn output from Dominions5.exe. Has ftherlnd, .trn file, etc., and is just waiting around for .2h files.
 type GameTurn = {
     id: Guid
-    name: string // file system is kept in datetimes, no offset
+    name: string
     originalDirectory: FullPath
     originalFiles: FileName list
     copiedDirectory: FullPath option
-    turnTime: DateTime
+    turnTime: DateTime // file system is kept in datetimes, no offset
     orders: OrdersVersion list
+    }
+
+// Has specific .2h files, ready for dominions5.exe execution. Includes Mandrake metadata about which .2h versions created this.
+type ExecutableGameTurn = {
+    inputs: GameTurn * OrdersVersion list
+    executionDirectory: FullPath
+    descriptionParagraphs: string list
     }
