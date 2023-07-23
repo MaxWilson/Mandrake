@@ -5,16 +5,43 @@ Directory.GetFiles(@"C:\usr\bin", "Dom*.exe", EnumerationOptions(RecurseSubdirec
 
 #r "nuget: Thoth.Json.Net"
 
-let permutations (groups: 't list list) =
-    let rec recur (lst: 't list list): 't list list =
-        match lst with
-        | [] -> []
-        | head::tail -> [
-            for item in head do
-                for t in recur tail do
-                    yield! item::t
-            ]
-    recur [] groups
-
-permutations [[1;2;3];[10]; [7;9;12;19]]
+let counter =
+    MailboxProcessor.Start(fun inbox ->
+        let rec loop n =
+            async { do printfn "n = %d, waiting..." n
+                    let! msg = inbox.Receive()
+                    return! loop(n+msg) }
+        loop 0)
+let counter1 =
+    new MailboxProcessor<_>(fun inbox ->
+        let rec loop n =
+            async { do printfn "n = %d, waiting..." n
+                    let! msg = inbox.Receive()
+                    return! loop(n+msg) }
+        loop 0)
+type Msg =
+    | Increment of AsyncReplyChannel<int> * int
+    | Query of AsyncReplyChannel<int>
+let counter2 =
+    MailboxProcessor.Start (fun inbox ->
+       let rec loop n =
+            async {
+                let! msg = inbox.Receive()
+                match msg with
+                | Increment(replyChannel, i) ->
+                    let n = n + i
+                    if n > 100 then do! (System.InvalidOperationException() |> raise)
+                    if n > 60 then do! failwith "Sorry"
+                    replyChannel.Reply n
+                    return! loop n
+                | Query(replyChannel) ->
+                    replyChannel.Reply(n)
+                    return! loop(n)
+            }
+       loop 0)
+counter2.PostAndReply(fun replyChannel -> Increment(replyChannel, 2))
+counter2.PostAndReply(fun replyChannel -> Query(replyChannel))
+counter2.TryPostAndReply(timeout= 1000, buildMessage=fun replyChannel -> Increment(replyChannel, 10))
+counter1.Start()
+counter1.Post 2
 
