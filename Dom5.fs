@@ -5,13 +5,14 @@ open System.IO
 open System.Threading.Tasks
 open DataTypes
 
-type ActorMsg = // not to be confused with an Elmish Msg although there are some similarities
-    // on program start, do setup once to restore state such as .2h files that are ready to be executed
-    | Setup of AsyncReplyChannel<GameTurn list> * (GameTurn list option) * (Settings.FileSettings)
-    // a new .2h file has been detected
-    | ReceiveOrders of AsyncReplyChannel<Guid * OrdersVersion> * (GameTurn list) * (FullPath)
+module Actor =
+    type ActorMsg = // not to be confused with an Elmish Msg although there are some similarities
+        // on program start, do setup once to restore state such as .2h files that are ready to be executed
+        | Setup of AsyncReplyChannel<GameTurn list> * (GameTurn list option) * (Settings.FileSettings)
+        // a new .2h file has been detected
+        | ReceiveOrders of AsyncReplyChannel<Guid * OrdersVersion> * (GameTurn list) * (FullPath)
 
-type Service = MailboxProcessor<ActorMsg>
+    type Service = MailboxProcessor<ActorMsg>
 
 let r = Random()
 

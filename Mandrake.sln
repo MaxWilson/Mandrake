@@ -5,6 +5,8 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Mandrake", "Mandrake.fsproj", "{DBBAB98E-21AC-4E18-9721-C9EBA6F6642E}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Mandrake.Test", "test\Mandrake.Test.fsproj", "{152E84AC-17F4-41CA-BB58-147BC940ADEA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -18,5 +20,9 @@ Global
 		{DBBAB98E-21AC-4E18-9721-C9EBA6F6642E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{DBBAB98E-21AC-4E18-9721-C9EBA6F6642E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{DBBAB98E-21AC-4E18-9721-C9EBA6F6642E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{152E84AC-17F4-41CA-BB58-147BC940ADEA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{152E84AC-17F4-41CA-BB58-147BC940ADEA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{152E84AC-17F4-41CA-BB58-147BC940ADEA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{152E84AC-17F4-41CA-BB58-147BC940ADEA}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
