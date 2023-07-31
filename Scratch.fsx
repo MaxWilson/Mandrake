@@ -23,20 +23,23 @@ type Msg =
     | Pause of AsyncReplyChannel<unit> * int
     | Increment of AsyncReplyChannel<int> * int
     | Query of AsyncReplyChannel<int>
-let waitAgent (replyChannel: AsyncReplyChannel<unit>) (ms: int) =
-    MailboxProcessor.Start (fun inbox ->
+let agent f =
+    MailboxProcessor.Start <| fun inbox ->
         async {
-            do! Async.Sleep ms
-            replyChannel.Reply()
-            })
+            while true do
+                let! (replyChannel: _ AsyncReplyChannel, msg) = inbox.Receive()
+                let! resp = f msg
+                replyChannel.Reply resp
+            }
+let waitAgent = agent (fun (ms: int) -> Async.Sleep ms)
 let counter2 =
-    MailboxProcessor.Start (fun inbox ->
+    MailboxProcessor.Start <| fun inbox ->
        let rec loop n =
             async {
                 let! msg = inbox.Receive()
                 match msg with
                 | Pause(replyChannel, ms) ->
-                    (waitAgent replyChannel ms) |> ignore
+                    waitAgent.Post (replyChannel, ms)
                     return! loop n
                 | Increment(replyChannel, i) ->
                     let n = n + i
@@ -48,7 +51,7 @@ let counter2 =
                     replyChannel.Reply(n)
                     return! loop(n)
             }
-       loop 0)
+       loop 0
 counter2.PostAndAsyncReply(fun replyChannel -> Increment(replyChannel, 2))
 async {
     let! x = counter2.PostAndAsyncReply(fun replyChannel -> Increment(replyChannel, 2))
