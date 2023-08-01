@@ -24,10 +24,10 @@ type Msg =
     | Increment of AsyncReplyChannel<int> * int
     | Query of AsyncReplyChannel<int>
 let agent f =
-    MailboxProcessor.Start <| fun inbox ->
+    MailboxProcessor.Start <| fun this ->
         async {
             while true do
-                let! (replyChannel: _ AsyncReplyChannel, msg) = inbox.Receive()
+                let! (replyChannel: _ AsyncReplyChannel, msg) = this.Receive()
                 let! resp = f msg
                 replyChannel.Reply resp
             }

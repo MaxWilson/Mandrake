@@ -35,21 +35,23 @@ module Hard =
         | ApproveOrders of OrdersId
         | DeleteOrders of OrdersId
         | DeleteGame of GameId
-    type HardMsg =
-        | Report of HardReport
-        | Command of HardCmd
     type HardModel = {
         autoApprove: bool
         autoApproveFilter: string option
         games: Map<GameId, FullPath>
         }
         with static member fresh = { autoApprove = false; autoApproveFilter = None; games = Map.empty }
+    type HardMsg =
+        | Report of HardReport
+        | Command of AsyncReplyChannel<HardModel> * HardCmd
     let update (system: HardInterface) (hardModel: HardModel) (hardMsg: HardMsg) =
         match hardMsg with
         | Report r -> notImpl()
-        | Command c ->
+        | Command (reply, c) ->
             match c with
-            | ToggleAutoApprove b -> { hardModel with autoApprove = b } |> async.Return
+            | ToggleAutoApprove b ->
+                reply.Reply() // this isn't right but we need to reply _somehow_
+                { hardModel with autoApprove = b } |> async.Return
             | SetAutoApproveFilter s -> { hardModel with autoApproveFilter = Some s } |> async.Return
             | ApproveOrders _ -> notImpl()
             | DeleteOrders _ -> notImpl()
@@ -73,25 +75,31 @@ module Hard =
 module Soft =
     // Note that SoftMsg is emitted only to update the SoftModel, not the HardModel,
     // so most user commands are HardCmds instead which emit SoftMsg at the end of the process.
-    type SoftMsg =
-        | Mirror of HardModel
     type Page =
         | Home
         | OrdersView
         | QueueView
         | ResultsView
-    type SoftCmd =
+    type SoftMsg =
+        | Mirror of HardModel
         | NavigateTo of Page
     // softModel needs to be sufficient to render to the screen, can have extra data like focus
     type SoftModel = {
         mirror: HardModel
         currentPage: Page
         }
+    let toggleCmd (hard:MailboxProcessor<Hard.HardMsg>) dispatch newValue =
+        task {
+            let! model' = hard.PostAndAsyncReply (fun reply -> Hard.Command (reply, Hard.ToggleAutoApprove newValue))
+            dispatch (Mirror model')
+            }
 
 [<Tests>]
 let tests = testList "TDD" [
-    testCase "placeholder" <| fun _ ->
+    testAsync "placeholder" {
         let hardInterface: HardInterface = notImpl()
         let softModel = SoftModel.fresh
+        toggleCmd hardInterface dispatch true
         Expect.isTrue true "placeholder"
+        }
     ]
