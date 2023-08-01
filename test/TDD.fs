@@ -88,11 +88,13 @@ module Soft =
         mirror: HardModel
         currentPage: Page
         }
-    let toggleCmd (hard:MailboxProcessor<Hard.HardMsg>) dispatch newValue =
+    let hardCmd cmdCtor (hard:MailboxProcessor<Hard.HardMsg>) dispatch ctorArg =
         task {
-            let! model' = hard.PostAndAsyncReply (fun reply -> Hard.Command (reply, Hard.ToggleAutoApprove newValue))
+            let! model' = hard.PostAndAsyncReply (fun reply -> Hard.Command (reply, cmdCtor ctorArg))
             dispatch (Mirror model')
             }
+    let toggleCmd =
+        hardCmd Hard.ToggleAutoApprove
 
 [<Tests>]
 let tests = testList "TDD" [
