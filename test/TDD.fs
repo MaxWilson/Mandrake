@@ -50,8 +50,9 @@ module Hard =
         | Command (reply, c) ->
             match c with
             | ToggleAutoApprove b ->
-                reply.Reply() // this isn't right but we need to reply _somehow_
-                { hardModel with autoApprove = b } |> async.Return
+                let m = { hardModel with autoApprove = b }
+                reply.Reply m
+                m |> async.Return
             | SetAutoApproveFilter s -> { hardModel with autoApproveFilter = Some s } |> async.Return
             | ApproveOrders _ -> notImpl()
             | DeleteOrders _ -> notImpl()
@@ -98,10 +99,17 @@ module Soft =
 
 [<Tests>]
 let tests = testList "TDD" [
-    testAsync "placeholder" {
-        let hardInterface: HardInterface = notImpl()
-        let softModel = SoftModel.fresh
-        toggleCmd hardInterface dispatch true
-        Expect.isTrue true "placeholder"
+    testAsync "AutoApprove message should toggle on mirror" {
+        let mockHardInterface = {
+            new HardInterface with
+                member this.DeleteGame _ = async { return () }
+                member this.StartProcessing _ = async { return () }
+                }
+        use mockHardSystem = Hard.create mockHardInterface Hard.HardModel.fresh
+        let mutable model = Hard.HardModel.fresh
+        let dispatch = function Mirror m -> model <- m | _ -> ()
+        Expect.isFalse model.autoApprove "AutoApprove should default to false"
+        do! (toggleCmd mockHardSystem dispatch true |> Async.AwaitTask)
+        Expect.isTrue  model.autoApprove "AutoApprove should have been set to true by user"
         }
     ]

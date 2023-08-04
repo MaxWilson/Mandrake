@@ -100,7 +100,8 @@ let approve dispatch (signals: Signals) (game: GameTurn) (orders: OrdersVersion)
         |> List.map snd
     for (opponents: OrdersVersion list) in partnerGroups |> permutations do
         let participants = orders::opponents
-        signals.approved(game, opponents)
+        //signals.approved(game, opponents)
+        System.NotImplementedException() |> raise
 
 let view (model: Model) signals dispatch =
     View.ScrollViewer <|
