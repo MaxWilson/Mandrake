@@ -79,8 +79,26 @@ module Hard =
            let rec loop hardModel =
                 async {
                     let! msg = inbox.Receive()
-                    let! model' = (update inbox system hardModel msg)
-                    return! loop model'
+                    match msg with
+                    | Report r -> notImpl()
+                    | Command (finisher, c) ->
+                        let model' =
+                            match c with
+                            | ToggleAutoApprove b ->
+                                { hardModel with autoApprove = b }
+                            | SetAutoApproveFilter s -> { hardModel with autoApproveFilter = Some s }
+                            | ApproveOrders _ -> notImpl()
+                            | DeleteOrders _ -> notImpl()
+                            | DeleteGame id ->
+                                let afterwards() =
+                                    inbox.Post(ContinueWith finisher)
+                                system.Post(Interface.Cmd.DeleteGame(hardModel.games[id], afterwards))
+                                hardModel
+                        finisher model'
+                        return! loop model'
+                    | ContinueWith f ->
+                        f hardModel
+                        return! loop hardModel
                 }
            loop initialModel)
 
