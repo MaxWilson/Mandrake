@@ -6,6 +6,14 @@ type GameId = GameId of Guid
 
 let notImpl() = failwith "not implemented"
 
+// for now we're just thinking out loud, trying to model the domain on both sides
+// and make sure we're not overlooking any cases. We already did this on paper,
+// just re-doing it in form suitable for github checkin.
+
+// the "hard" model is an interface to the actual Dom5 game (file system, processes). It is actor-based.
+// the "soft" model is an interface to the user's needs and desires (GUI). It is Elmish-based.
+// actors and Elmish both are message-based. They are similar but not identical.
+
 [<AutoOpen>]
 module Interface =
     type Cmd =
@@ -38,45 +46,42 @@ module Hard =
         | Report of HardReport
         | Command of onFinish:(HardModel -> unit) * HardCmd
         | ContinueWith of (HardModel -> unit)
-    let update (inbox: _ MailboxProcessor) (system: HardInterface) (hardModel: HardModel) (hardMsg: HardMsg) =
-        match hardMsg with
-        | Report r -> notImpl()
-        | Command (finisher, c) ->
-            async {
-                let model' =
-                    match c with
-                    | ToggleAutoApprove b ->
-                        { hardModel with autoApprove = b }
-                    | SetAutoApproveFilter s -> { hardModel with autoApproveFilter = Some s }
-                    | ApproveOrders _ -> notImpl()
-                    | DeleteOrders _ -> notImpl()
-                    | DeleteGame id ->
-                        let afterwards() =
-                            inbox.Post(ContinueWith finisher)
-                        printfn "Deleting game %A" id
-                        let ignore = system.PostAndTryAsyncReply(fun _ -> Interface.Cmd.DeleteGame(hardModel.games[id], afterwards))
-                        printfn "Deleted game %A" id
-                        hardModel
-                finisher model'
-                return model'
-                }
-        | ContinueWith f ->
-            async {
-                f hardModel
-                return hardModel
-                }
-    let create update (system: HardInterface) (initialModel: HardModel) =
+    let create (system: HardInterface) (initialModel: HardModel) =
         MailboxProcessor.Start (fun inbox ->
            let rec loop hardModel =
                 async {
+                    printfn "Looping"
                     let! msg = inbox.Receive()
                     printfn "Received %A" msg
-                    let! model' = (update inbox system hardModel msg)
-                    printfn "Processed %A" msg
-                    return! loop model'
+                    match msg with
+                    | Report r -> notImpl()
+                    | Command (finisher, c) ->
+                        match c with
+                        | ToggleAutoApprove b ->
+                            let model' = { hardModel with autoApprove = b }
+                            finisher model'
+                            return! loop model'
+                        | SetAutoApproveFilter s ->
+                            let model' = { hardModel with autoApproveFilter = Some s }
+                            finisher model'
+                            return! loop model'
+                        | ApproveOrders _ -> notImpl()
+                        | DeleteOrders _ -> notImpl()
+                        | DeleteGame id ->
+                            let afterwards() =
+                                printfn "Afterwards, finishing..."
+                                inbox.Post(ContinueWith finisher)
+                            printfn "Posting"
+                            system.Post(Interface.Cmd.DeleteGame(hardModel.games[id], afterwards))
+                            printfn "Posted"
+                            finisher hardModel
+                            return! loop hardModel
+                    | ContinueWith f ->
+                        printfn "Continuing with %A" hardModel
+                        f hardModel
+                        return! loop hardModel
                 }
            loop initialModel)
-
 [<AutoOpen>]
 module Soft =
     // Note that SoftMsg is emitted only to update the SoftModel, not the HardModel,
@@ -97,9 +102,7 @@ module Soft =
     let hardCmd cmdCtor (hard:MailboxProcessor<Hard.HardMsg>) dispatch ctorArg =
         task {
             let complete (reply: _ AsyncReplyChannel) model' =
-                printfn "Completing"
                 reply.Reply()
-                printfn "Mirroring"
                 dispatch (Mirror model')
             do! hard.PostAndAsyncReply ((fun reply -> Hard.Command (complete reply, cmdCtor ctorArg)), 1000) // 1 second timeout is more than enough for any real scenario. It should actually be instantaneous.
             }
@@ -107,7 +110,6 @@ module Soft =
         hardCmd Hard.ToggleAutoApprove
     let deleteCmd =
         hardCmd Hard.DeleteGame
-
 
 let hardLogic =
     MailboxProcessor.Start(fun this ->
@@ -118,15 +120,16 @@ let hardLogic =
                 match msg with
                 | Interface.DeleteGame _ ->
                     printfn "hardLogic Sleeping"
-                    do! Async.Sleep 10
+                    do! Async.Sleep 1000
                     printfn "hardLogic Just woke up"
                 | _ -> ()
             })
 
-let mockHardSystem = Hard.create update hardLogic Hard.HardModel.fresh
+let mockHardSystem = Hard.create hardLogic Hard.HardModel.fresh
 let mutable model = Hard.HardModel.fresh
 let dispatch = function Mirror m -> model <- m | _ -> ()
 false = model.autoApprove
+hardLogic.Post(Interface.DeleteGame(FullPath "foo", ignore))
 (deleteCmd mockHardSystem dispatch (System.Guid.NewGuid() |> GameId)).Result
 
 // concurrency seems fine for mb1 and mb2, so why not with mockHardSystem?

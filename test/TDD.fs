@@ -1,7 +1,7 @@
 module TDD
 
-open System
 open Expecto
+open System
 
 type FullPath = FullPath of string
 type OrdersId = OrdersId of Guid
@@ -49,31 +49,6 @@ module Hard =
         | Report of HardReport
         | Command of onFinish:(HardModel -> unit) * HardCmd
         | ContinueWith of (HardModel -> unit)
-    let update (inbox: _ MailboxProcessor) (system: HardInterface) (hardModel: HardModel) (hardMsg: HardMsg) =
-        match hardMsg with
-        | Report r -> notImpl()
-        | Command (finisher, c) ->
-            async {
-                let model' =
-                    match c with
-                    | ToggleAutoApprove b ->
-                        { hardModel with autoApprove = b }
-                    | SetAutoApproveFilter s -> { hardModel with autoApproveFilter = Some s }
-                    | ApproveOrders _ -> notImpl()
-                    | DeleteOrders _ -> notImpl()
-                    | DeleteGame id ->
-                        let afterwards() =
-                            inbox.Post(ContinueWith finisher)
-                        system.Post(Interface.Cmd.DeleteGame(hardModel.games[id], afterwards))
-                        hardModel
-                finisher model'
-                return model'
-                }
-        | ContinueWith f ->
-            async {
-                f hardModel
-                return hardModel
-                }
     let create (system: HardInterface) (initialModel: HardModel) =
         MailboxProcessor.Start (fun inbox ->
            let rec loop hardModel =
@@ -82,20 +57,23 @@ module Hard =
                     match msg with
                     | Report r -> notImpl()
                     | Command (finisher, c) ->
-                        let model' =
-                            match c with
-                            | ToggleAutoApprove b ->
-                                { hardModel with autoApprove = b }
-                            | SetAutoApproveFilter s -> { hardModel with autoApproveFilter = Some s }
-                            | ApproveOrders _ -> notImpl()
-                            | DeleteOrders _ -> notImpl()
-                            | DeleteGame id ->
-                                let afterwards() =
-                                    inbox.Post(ContinueWith finisher)
-                                system.Post(Interface.Cmd.DeleteGame(hardModel.games[id], afterwards))
-                                hardModel
-                        finisher model'
-                        return! loop model'
+                        match c with
+                        | ToggleAutoApprove b ->
+                            let model' = { hardModel with autoApprove = b }
+                            finisher model'
+                            return! loop model'
+                        | SetAutoApproveFilter s ->
+                            let model' = { hardModel with autoApproveFilter = Some s }
+                            finisher model'
+                            return! loop model'
+                        | ApproveOrders _ -> notImpl()
+                        | DeleteOrders _ -> notImpl()
+                        | DeleteGame id ->
+                            let afterwards() =
+                                inbox.Post(ContinueWith finisher)
+                            system.Post(Interface.Cmd.DeleteGame(hardModel.games[id], afterwards))
+                            finisher hardModel
+                            return! loop hardModel
                     | ContinueWith f ->
                         f hardModel
                         return! loop hardModel
