@@ -18,13 +18,17 @@ let notImpl() = failwith "not implemented"
 // actors and Elmish both are message-based. They are similar but not identical.
 
 [<AutoOpen>]
+module Interface =
+    type Cmd =
+        | DeleteGame of FullPath
+        | StartProcessing of gameName: string
+
+[<AutoOpen>]
 module Hard =
     type HardReport =
         | ReportNew2hCreated
         | ReportGameDeleted
-    type HardInterface =
-        abstract DeleteGame: FullPath -> Async<unit>
-        abstract StartProcessing: gameName: string -> Async<unit>
+    type HardInterface = Interface.Cmd MailboxProcessor
     // HardCmd is used to represent user commands, which change the HardModel (as opposed
     // to the SoftModel, which is updated via SoftCmd).
     // Generally we expect the user to use the View to inform HardControl of changes
@@ -49,18 +53,16 @@ module Hard =
         | Report r -> notImpl()
         | Command (finisher, c) ->
             async {
-                let! model' =
+                let model' =
                     match c with
                     | ToggleAutoApprove b ->
-                        { hardModel with autoApprove = b } |> async.Return
-                    | SetAutoApproveFilter s -> async.Return { hardModel with autoApproveFilter = Some s }
+                        { hardModel with autoApprove = b }
+                    | SetAutoApproveFilter s -> { hardModel with autoApproveFilter = Some s }
                     | ApproveOrders _ -> notImpl()
                     | DeleteOrders _ -> notImpl()
                     | DeleteGame id ->
-                        async {
-                            do! system.DeleteGame(hardModel.games[id]) // hey, is it a problem that this might block the UI from toggling AutoApprove on and off?
-                            return hardModel
-                            }
+                        system.Post(Interface.Cmd.DeleteGame(hardModel.games[id]))
+                        hardModel
                 finisher model'
                 return model'
                 }
@@ -106,11 +108,15 @@ module Soft =
 [<Tests>]
 let tests = testList "TDD" [
     testAsync "AutoApprove message should toggle on mirror" {
-        let mockHardInterface = {
-            new HardInterface with
-                member this.DeleteGame _ = async { return () }
-                member this.StartProcessing _ = async { return () }
-                }
+        let mockHardInterface =
+            MailboxProcessor.Start(fun this ->
+                async {
+                    while true do
+                        let! msg = this.Receive()
+                        match msg with
+                        | _ -> ()
+                    })
+
         use mockHardSystem = Hard.create mockHardInterface Hard.HardModel.fresh
         let mutable model = Hard.HardModel.fresh
         let dispatch = function Mirror m -> model <- m | _ -> ()
@@ -119,23 +125,23 @@ let tests = testList "TDD" [
         Expect.isTrue  model.autoApprove "AutoApprove should have been set to true by user"
         }
     testAsync "AutoApprove message should toggle even while long operations are ongoing" {
-        let mockHardInterface = {
-            new HardInterface with
-                member this.DeleteGame _ =
-                    async {
-                        do! Async.Sleep 1000; // don't do this! It will block the mailbox forever!
-                        return ()
-                        }
-                member this.StartProcessing _ = async { return () }
-                }
+        let mockHardInterface =
+            MailboxProcessor.Start(fun this ->
+                async {
+                    while true do
+                        let! msg = this.Receive()
+                        match msg with
+                        | Interface.DeleteGame _ -> do! Async.Sleep 1000
+                        | _ -> ()
+                    })
         use mockHardSystem = Hard.create mockHardInterface Hard.HardModel.fresh
         let mutable model = Hard.HardModel.fresh
         let dispatch = function Mirror m -> model <- m | _ -> ()
         Expect.isFalse model.autoApprove "AutoApprove should default to false"
-        let longOp =
+        let deletion =
             deleteCmd mockHardSystem dispatch (System.Guid.NewGuid() |> GameId) |> Async.AwaitTask
         do! (toggleCmd mockHardSystem dispatch true |> Async.AwaitTask)
         Expect.isTrue  model.autoApprove "AutoApprove should have been set to true by user"
-        do! longOp
+        do! deletion // we do expect deletion to complete eventually
         }
     ]
