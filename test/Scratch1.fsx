@@ -65,7 +65,7 @@ module Hard =
                 f hardModel
                 return hardModel
                 }
-    let create (system: HardInterface) (initialModel: HardModel) =
+    let create update (system: HardInterface) (initialModel: HardModel) =
         MailboxProcessor.Start (fun inbox ->
            let rec loop hardModel =
                 async {
@@ -109,20 +109,21 @@ module Soft =
         hardCmd Hard.DeleteGame
 
 
-let mockHardInterface =
+let hardLogic =
     MailboxProcessor.Start(fun this ->
         async {
             while true do
                 let! msg = this.Receive()
+                printfn "hardLogic received %A" msg
                 match msg with
                 | Interface.DeleteGame _ ->
-                    printfn "Sleeping"
-                    do! Async.Sleep 1000
-                    printfn "Just woke up"
+                    printfn "hardLogic Sleeping"
+                    do! Async.Sleep 10
+                    printfn "hardLogic Just woke up"
                 | _ -> ()
             })
 
-let mockHardSystem = Hard.create mockHardInterface Hard.HardModel.fresh
+let mockHardSystem = Hard.create update hardLogic Hard.HardModel.fresh
 let mutable model = Hard.HardModel.fresh
 let dispatch = function Mirror m -> model <- m | _ -> ()
 false = model.autoApprove
@@ -145,3 +146,25 @@ let mb2 = MailboxProcessor.Start <| fun self -> async {
             printfn "Processed %A and got %A" msg resp)
     }
 mb2.Post(1000)
+
+let mockHardSystem =
+    MailboxProcessor<HardMsg>.Start (fun inbox ->
+           let rec loop hardModel =
+                async {
+                    let! msg = inbox.Receive()
+                    printfn "Received %A" msg
+                    printfn "update2 start"
+                    //let ignore = hardLogic.PostAndTryAsyncReply(fun _ -> Interface.Cmd.DeleteGame(FullPath "fakepath", ignore))
+                    printfn "update2 end"
+                    printfn "Processed %A" msg
+                    match msg with
+                    | Hard.Command(onFinish, cmd) ->
+                        onFinish(hardModel)
+                    | _ -> ()
+                    return! loop hardModel
+                }
+           loop Hard.HardModel.fresh)
+let dispatch = function Mirror m -> () | _ -> ()
+
+(deleteCmd mockHardSystem dispatch (System.Guid.NewGuid() |> GameId)).Result
+mockHardSystem.Post(HardMsg.Command((fun _ -> printfn "\n\n\n\nOK, done!"), HardCmd.DeleteGame(System.Guid.NewGuid() |> GameId)))
