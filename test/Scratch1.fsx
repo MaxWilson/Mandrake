@@ -101,10 +101,9 @@ module Soft =
         }
     let hardCmd cmdCtor (hard:MailboxProcessor<Hard.HardMsg>) dispatch ctorArg =
         task {
-            let complete (reply: _ AsyncReplyChannel) model' =
-                reply.Reply()
+            let complete model' =
                 dispatch (Mirror model')
-            do! hard.PostAndAsyncReply ((fun reply -> Hard.Command (complete reply, cmdCtor ctorArg)), 1000) // 1 second timeout is more than enough for any real scenario. It should actually be instantaneous.
+            hard.Post(Hard.Command (complete, cmdCtor ctorArg)) // 1 second timeout is more than enough for any real scenario. It should actually be instantaneous.
             }
     let toggleCmd =
         hardCmd Hard.ToggleAutoApprove
@@ -120,7 +119,7 @@ let hardLogic =
                 match msg with
                 | Interface.DeleteGame _ ->
                     printfn "hardLogic Sleeping"
-                    do! Async.Sleep 1000
+                    //do! Async.Sleep 1000
                     printfn "hardLogic Just woke up"
                 | _ -> ()
             })
@@ -129,6 +128,7 @@ let mockHardSystem = Hard.create hardLogic Hard.HardModel.fresh
 let mutable model = Hard.HardModel.fresh
 let dispatch = function Mirror m -> model <- m | _ -> ()
 false = model.autoApprove
+mockHardSystem.Post(Hard.Command (Mirror >> dispatch, HardCmd.DeleteGame (System.Guid.NewGuid() |> GameId))) // 1 second timeout is more than enough for any real scenario. It should actually be instantaneous.
 hardLogic.Post(Interface.DeleteGame(FullPath "foo", ignore))
 (deleteCmd mockHardSystem dispatch (System.Guid.NewGuid() |> GameId)).Result
 
@@ -139,6 +139,7 @@ let mb1 = MailboxProcessor.Start <| fun self -> async {
         let! msg, after = self.Receive()
         do! Async.Sleep (msg: int)
         me <- me + msg
+        hardLogic.Post(Interface.DeleteGame(FullPath "foo", ignore))
         after me
     }
 let mb2 = MailboxProcessor.Start <| fun self -> async {

@@ -54,28 +54,33 @@ module Hard =
            let rec loop hardModel =
                 async {
                     let! msg = inbox.Receive()
-                    match msg with
-                    | Report r -> notImpl()
-                    | Command (finisher, c) ->
-                        match c with
-                        | ToggleAutoApprove b ->
-                            let model' = { hardModel with autoApprove = b }
-                            finisher model'
-                            return! loop model'
-                        | SetAutoApproveFilter s ->
-                            let model' = { hardModel with autoApproveFilter = Some s }
-                            finisher model'
-                            return! loop model'
-                        | ApproveOrders _ -> notImpl()
-                        | DeleteOrders _ -> notImpl()
-                        | DeleteGame id ->
-                            let afterwards() =
-                                inbox.Post(ContinueWith finisher)
-                            system.Post(Interface.Cmd.DeleteGame(hardModel.games[id], afterwards))
-                            finisher hardModel
+                    try
+                        match msg with
+                        | Report r -> notImpl()
+                        | Command (finisher, c) ->
+                            match c with
+                            | ToggleAutoApprove b ->
+                                let model' = { hardModel with autoApprove = b }
+                                finisher model'
+                                return! loop model'
+                            | SetAutoApproveFilter s ->
+                                let model' = { hardModel with autoApproveFilter = Some s }
+                                finisher model'
+                                return! loop model'
+                            | ApproveOrders _ -> notImpl()
+                            | DeleteOrders _ -> notImpl()
+                            | DeleteGame id ->
+                                let afterwards() =
+                                    inbox.Post(ContinueWith finisher)
+                                match hardModel.games |> Map.tryFind id with
+                                | Some gameId ->
+                                    system.Post(Interface.Cmd.DeleteGame(gameId, afterwards))
+                                | None -> afterwards()
+                                return! loop hardModel
+                        | ContinueWith f ->
+                            f hardModel
                             return! loop hardModel
-                    | ContinueWith f ->
-                        f hardModel
+                    with _ ->
                         return! loop hardModel
                 }
            loop initialModel)
