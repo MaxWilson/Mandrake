@@ -43,25 +43,27 @@ module Hard =
         with static member fresh = { autoApprove = false; autoApproveFilter = None; games = Map.empty }
     type HardMsg =
         | Report of HardReport
-        | Command of AsyncReplyChannel<HardModel> * HardCmd
+        | Command of onFinish:(HardModel -> unit) * HardCmd
     let update (system: HardInterface) (hardModel: HardModel) (hardMsg: HardMsg) =
         match hardMsg with
         | Report r -> notImpl()
-        | Command (reply, c) ->
-            match c with
-            | ToggleAutoApprove b ->
-                let m = { hardModel with autoApprove = b }
-                reply.Reply m
-                m |> async.Return
-            | SetAutoApproveFilter s -> { hardModel with autoApproveFilter = Some s } |> async.Return
-            | ApproveOrders _ -> notImpl()
-            | DeleteOrders _ -> notImpl()
-            | DeleteGame id ->
-                async {
-                    do! system.DeleteGame(hardModel.games[id]) // hey, is it a problem that this might block the UI from toggling AutoApprove on and off?
-                    // maybe we should send a finishedDeleting message or something instead.
-                    return hardModel
-                    }
+        | Command (finisher, c) ->
+            async {
+                let! model' =
+                    match c with
+                    | ToggleAutoApprove b ->
+                        { hardModel with autoApprove = b } |> async.Return
+                    | SetAutoApproveFilter s -> async.Return { hardModel with autoApproveFilter = Some s }
+                    | ApproveOrders _ -> notImpl()
+                    | DeleteOrders _ -> notImpl()
+                    | DeleteGame id ->
+                        async {
+                            do! system.DeleteGame(hardModel.games[id]) // hey, is it a problem that this might block the UI from toggling AutoApprove on and off?
+                            return hardModel
+                            }
+                finisher model'
+                return model'
+                }
     let create (system: HardInterface) (initialModel: HardModel) =
         MailboxProcessor.Start (fun inbox ->
            let rec loop hardModel =
@@ -91,11 +93,15 @@ module Soft =
         }
     let hardCmd cmdCtor (hard:MailboxProcessor<Hard.HardMsg>) dispatch ctorArg =
         task {
-            let! model' = hard.PostAndAsyncReply (fun reply -> Hard.Command (reply, cmdCtor ctorArg))
-            dispatch (Mirror model')
+            let complete (reply: _ AsyncReplyChannel) model' =
+                reply.Reply()
+                dispatch (Mirror model')
+            do! hard.PostAndAsyncReply ((fun reply -> Hard.Command (complete reply, cmdCtor ctorArg)), 1000) // 1 second timeout is more than enough for any real scenario. It should actually be instantaneous.
             }
     let toggleCmd =
         hardCmd Hard.ToggleAutoApprove
+    let deleteCmd =
+        hardCmd Hard.DeleteGame
 
 [<Tests>]
 let tests = testList "TDD" [
@@ -111,5 +117,25 @@ let tests = testList "TDD" [
         Expect.isFalse model.autoApprove "AutoApprove should default to false"
         do! (toggleCmd mockHardSystem dispatch true |> Async.AwaitTask)
         Expect.isTrue  model.autoApprove "AutoApprove should have been set to true by user"
+        }
+    testAsync "AutoApprove message should toggle even while long operations are ongoing" {
+        let mockHardInterface = {
+            new HardInterface with
+                member this.DeleteGame _ =
+                    async {
+                        do! Async.Sleep 1000; // don't do this! It will block the mailbox forever!
+                        return ()
+                        }
+                member this.StartProcessing _ = async { return () }
+                }
+        use mockHardSystem = Hard.create mockHardInterface Hard.HardModel.fresh
+        let mutable model = Hard.HardModel.fresh
+        let dispatch = function Mirror m -> model <- m | _ -> ()
+        Expect.isFalse model.autoApprove "AutoApprove should default to false"
+        let longOp =
+            deleteCmd mockHardSystem dispatch (System.Guid.NewGuid() |> GameId) |> Async.AwaitTask
+        do! (toggleCmd mockHardSystem dispatch true |> Async.AwaitTask)
+        Expect.isTrue  model.autoApprove "AutoApprove should have been set to true by user"
+        do! longOp
         }
     ]
