@@ -147,24 +147,24 @@ let mb2 = MailboxProcessor.Start <| fun self -> async {
     }
 mb2.Post(1000)
 
-let mockHardSystem =
-    MailboxProcessor<HardMsg>.Start (fun inbox ->
-           let rec loop hardModel =
-                async {
-                    let! msg = inbox.Receive()
-                    printfn "Received %A" msg
-                    printfn "update2 start"
-                    //let ignore = hardLogic.PostAndTryAsyncReply(fun _ -> Interface.Cmd.DeleteGame(FullPath "fakepath", ignore))
-                    printfn "update2 end"
-                    printfn "Processed %A" msg
-                    match msg with
-                    | Hard.Command(onFinish, cmd) ->
-                        onFinish(hardModel)
-                    | _ -> ()
-                    return! loop hardModel
-                }
-           loop Hard.HardModel.fresh)
-let dispatch = function Mirror m -> () | _ -> ()
+//let mockHardSystem =
+//    MailboxProcessor<HardMsg>.Start (fun inbox ->
+//           let rec loop hardModel =
+//                async {
+//                    let! msg = inbox.Receive()
+//                    printfn "Received %A" msg
+//                    printfn "update2 start"
+//                    //let ignore = hardLogic.PostAndTryAsyncReply(fun _ -> Interface.Cmd.DeleteGame(FullPath "fakepath", ignore))
+//                    printfn "update2 end"
+//                    printfn "Processed %A" msg
+//                    match msg with
+//                    | Hard.Command(onFinish, cmd) ->
+//                        onFinish(hardModel)
+//                    | _ -> ()
+//                    return! loop hardModel
+//                }
+//           loop Hard.HardModel.fresh)
+//let dispatch = function Mirror m -> () | _ -> ()
 
-(deleteCmd mockHardSystem dispatch (System.Guid.NewGuid() |> GameId)).Result
-mockHardSystem.Post(HardMsg.Command((fun _ -> printfn "\n\n\n\nOK, done!"), HardCmd.DeleteGame(System.Guid.NewGuid() |> GameId)))
+//(deleteCmd mockHardSystem dispatch (System.Guid.NewGuid() |> GameId)).Result
+//mockHardSystem.Post(HardMsg.Command((fun _ -> printfn "\n\n\n\nOK, done!"), HardCmd.DeleteGame(System.Guid.NewGuid() |> GameId)))

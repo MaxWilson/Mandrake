@@ -139,7 +139,9 @@ let tests = testList "TDD" [
                     while true do
                         let! msg = this.Receive()
                         match msg with
-                        | Interface.DeleteGame _ -> do! Async.Sleep 1000
+                        | Interface.DeleteGame (_, notify) ->
+                            do! Async.Sleep 1000
+                            notify()
                         | _ -> ()
                     })
         use mockHardSystem = Hard.create mockHardInterface Hard.HardModel.fresh
