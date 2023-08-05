@@ -1,21 +1,10 @@
-module TDD
-
 open System
-open Expecto
 
 type FullPath = FullPath of string
 type OrdersId = OrdersId of Guid
 type GameId = GameId of Guid
 
 let notImpl() = failwith "not implemented"
-
-// for now we're just thinking out loud, trying to model the domain on both sides
-// and make sure we're not overlooking any cases. We already did this on paper,
-// just re-doing it in form suitable for github checkin.
-
-// the "hard" model is an interface to the actual Dom5 game (file system, processes). It is actor-based.
-// the "soft" model is an interface to the user's needs and desires (GUI). It is Elmish-based.
-// actors and Elmish both are message-based. They are similar but not identical.
 
 [<AutoOpen>]
 module Interface =
@@ -64,7 +53,9 @@ module Hard =
                     | DeleteGame id ->
                         let afterwards() =
                             inbox.Post(ContinueWith finisher)
-                        system.Post(Interface.Cmd.DeleteGame(hardModel.games[id], afterwards))
+                        printfn "Deleting game %A" id
+                        let ignore = system.PostAndTryAsyncReply(fun _ -> Interface.Cmd.DeleteGame(hardModel.games[id], afterwards))
+                        printfn "Deleted game %A" id
                         hardModel
                 finisher model'
                 return model'
@@ -79,7 +70,9 @@ module Hard =
            let rec loop hardModel =
                 async {
                     let! msg = inbox.Receive()
+                    printfn "Received %A" msg
                     let! model' = (update inbox system hardModel msg)
+                    printfn "Processed %A" msg
                     return! loop model'
                 }
            loop initialModel)
@@ -104,7 +97,9 @@ module Soft =
     let hardCmd cmdCtor (hard:MailboxProcessor<Hard.HardMsg>) dispatch ctorArg =
         task {
             let complete (reply: _ AsyncReplyChannel) model' =
+                printfn "Completing"
                 reply.Reply()
+                printfn "Mirroring"
                 dispatch (Mirror model')
             do! hard.PostAndAsyncReply ((fun reply -> Hard.Command (complete reply, cmdCtor ctorArg)), 1000) // 1 second timeout is more than enough for any real scenario. It should actually be instantaneous.
             }
@@ -113,43 +108,40 @@ module Soft =
     let deleteCmd =
         hardCmd Hard.DeleteGame
 
-[<Tests>]
-let tests = testList "TDD" [
-    testAsync "AutoApprove message should toggle on mirror" {
-        let mockHardInterface =
-            MailboxProcessor.Start(fun this ->
-                async {
-                    while true do
-                        let! msg = this.Receive()
-                        match msg with
-                        | _ -> ()
-                    })
 
-        use mockHardSystem = Hard.create mockHardInterface Hard.HardModel.fresh
-        let mutable model = Hard.HardModel.fresh
-        let dispatch = function Mirror m -> model <- m | _ -> ()
-        Expect.isFalse model.autoApprove "AutoApprove should default to false"
-        do! (toggleCmd mockHardSystem dispatch true |> Async.AwaitTask)
-        Expect.isTrue  model.autoApprove "AutoApprove should have been set to true by user"
-        }
-    testAsync "AutoApprove message should toggle even while long operations are ongoing" {
-        let mockHardInterface =
-            MailboxProcessor.Start(fun this ->
-                async {
-                    while true do
-                        let! msg = this.Receive()
-                        match msg with
-                        | Interface.DeleteGame _ -> do! Async.Sleep 1000
-                        | _ -> ()
-                    })
-        use mockHardSystem = Hard.create mockHardInterface Hard.HardModel.fresh
-        let mutable model = Hard.HardModel.fresh
-        let dispatch = function Mirror m -> model <- m | _ -> ()
-        Expect.isFalse model.autoApprove "AutoApprove should default to false"
-        let deletion =
-            deleteCmd mockHardSystem dispatch (System.Guid.NewGuid() |> GameId) |> Async.AwaitTask
-        do! (toggleCmd mockHardSystem dispatch true |> Async.AwaitTask)
-        Expect.isTrue  model.autoApprove "AutoApprove should have been set to true by user"
-        do! deletion // we do expect deletion to complete eventually
-        }
-    ]
+let mockHardInterface =
+    MailboxProcessor.Start(fun this ->
+        async {
+            while true do
+                let! msg = this.Receive()
+                match msg with
+                | Interface.DeleteGame _ ->
+                    printfn "Sleeping"
+                    do! Async.Sleep 1000
+                    printfn "Just woke up"
+                | _ -> ()
+            })
+
+let mockHardSystem = Hard.create mockHardInterface Hard.HardModel.fresh
+let mutable model = Hard.HardModel.fresh
+let dispatch = function Mirror m -> model <- m | _ -> ()
+false = model.autoApprove
+(deleteCmd mockHardSystem dispatch (System.Guid.NewGuid() |> GameId)).Result
+
+// concurrency seems fine for mb1 and mb2, so why not with mockHardSystem?
+let mb1 = MailboxProcessor.Start <| fun self -> async {
+    let mutable me = 0
+    while true do
+        let! msg, after = self.Receive()
+        do! Async.Sleep (msg: int)
+        me <- me + msg
+        after me
+    }
+let mb2 = MailboxProcessor.Start <| fun self -> async {
+    while true do
+        let! msg = self.Receive()
+        printfn "Received %A" <| msg
+        mb1.Post(msg, fun resp ->
+            printfn "Processed %A and got %A" msg resp)
+    }
+mb2.Post(1000)
