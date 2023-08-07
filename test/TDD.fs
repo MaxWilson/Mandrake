@@ -116,7 +116,7 @@ module Soft =
         hardCmd Hard.DeleteGame
 
 [<Tests>]
-let tests = testList "TDD" [
+let tests = testLabel "Mandrake" <| testList "TDD" [
     testAsync "AutoApprove message should toggle on mirror" {
         let mockHardInterface =
             MailboxProcessor.Start(fun this ->
