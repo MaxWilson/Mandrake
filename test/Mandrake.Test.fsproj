@@ -15,6 +15,7 @@
 
   <ItemGroup>
     <PackageReference Include="Expecto" Version="10.*" />
+    <PackageReference Include="Expecto.FsCheck" Version="10.1.0" />
     <PackageReference Include="YoloDev.Expecto.TestSdk" Version="0.*" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.*" />
   </ItemGroup>

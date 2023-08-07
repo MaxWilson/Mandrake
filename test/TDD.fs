@@ -1,6 +1,7 @@
 module TDD
 
 open Expecto
+open ExpectoFsCheck
 open System
 
 type FullPath = FullPath of string
@@ -155,4 +156,6 @@ let tests = testList "TDD" [
         Expect.isTrue  model.autoApprove "AutoApprove should have been set to true by user"
         do! deletion // we do expect deletion to complete eventually
         }
+    testProperty "Addition is commutative" <| fun a b ->
+      a + b = b + a
     ]
