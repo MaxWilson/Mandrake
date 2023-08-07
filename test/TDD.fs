@@ -3,6 +3,7 @@ module TDD
 open Expecto
 open ExpectoFsCheck
 open System
+open FsCheck
 
 type FullPath = FullPath of string
 type OrdersId = OrdersId of Guid
@@ -115,6 +116,22 @@ module Soft =
     let deleteCmd =
         hardCmd Hard.DeleteGame
 
+type User = {
+    Id : int
+    FirstName : string
+    LastName : string
+}
+
+type SmallPrime =
+    SmallPrime of int
+type SmallPrimeGen() =
+    static let arbSmallPrime =
+        Arb.generate<int>
+        |> Gen.filter (fun x -> x < 10)
+        |> Gen.map (fun i -> SmallPrime i)
+        |> Arb.fromGen
+    static member SmallPrime() = arbSmallPrime
+    //Gen.elements [2;3;5;7] |> Gen.map SmallPrime |> Arb.fromGen
 [<Tests>]
 let tests = testLabel "Mandrake" <| testList "TDD" [
     testAsync "AutoApprove message should toggle on mirror" {
@@ -157,5 +174,7 @@ let tests = testLabel "Mandrake" <| testList "TDD" [
         do! deletion // we do expect deletion to complete eventually
         }
     testProperty "Addition is commutative" <| fun a b ->
-      a + b = b + a
+        a + b = b + a
+    testPropertyWithConfig { FsCheckConfig.defaultConfig with arbitrary = [typeof<SmallPrimeGen>] } "All smallprimes are small" <|
+        fun (SmallPrime (p: int)) -> (p < 10)
     ]
