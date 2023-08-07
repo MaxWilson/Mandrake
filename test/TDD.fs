@@ -177,4 +177,12 @@ let tests = testLabel "Mandrake" <| testList "TDD" [
         a + b = b + a
     testPropertyWithConfig { FsCheckConfig.defaultConfig with arbitrary = [typeof<SmallPrimeGen>] } "All smallprimes are small" <|
         fun (SmallPrime (p: int)) -> (p < 10)
+    testSequenced <| testList "New game detected gets added to list" [
+        test "M sets of N orders all get detected and copied to unique folders" { () }
+        test "All approved orders generate permutations in the queue" { () }
+        test "All permutations eventually execute and go to results queue" { () }
+        test "Advancing base game does auto-cleanup of non-queued copied orders, and cleans up
+                generated games if settings.autoCleanupGeneratedGames is set" { () }
+        test "Otherwise, wait for Discard command on generated game and then delete" { () }
+        ]
     ]
