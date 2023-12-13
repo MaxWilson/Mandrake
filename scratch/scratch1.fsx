@@ -21,15 +21,6 @@ module Assert =
         if expected <> actual then
             failwithf $"Expected {expected} but got {actual}"
 
-async {
-    for _ in 1..10 do
-        do! Async.Sleep 10
-        x <- x + 1
-}
-|> Async.StartImmediate
-
-Assert.soon (fun () -> x = 10) "x should quickly reach 10"
-
 type FullPath = string
 
 type FileSystemListener =
