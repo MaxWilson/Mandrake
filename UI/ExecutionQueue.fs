@@ -27,6 +27,7 @@ let update (msg: Msg) (model: Model) : Model =
         { model with
             todo = model.todo |> Queue.append game }
     | Finished id -> notImpl ()
+    | v -> matchfail v
 
 let view model signals dispatch =
     View.DockPanel [ View.TextBlock "ExecutionQueue placeholder" ]
