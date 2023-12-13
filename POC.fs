@@ -3,22 +3,28 @@ module POC
 type FullPath = string
 
 type FileSystemListener =
-    { whenNew: FullPath -> unit
-      whenUpdated: FullPath -> unit }
+    { whenNew (*gameName*) : string * FullPath -> unit
+      whenUpdated (*gameName*) : string * FullPath -> unit }
 
-type FileSystem(initialize) as this =
+type FileSystem(copy: string * FullPath -> unit, initialize) as this =
     let mutable listeners = []
     do initialize this
 
     member this.New(path: FullPath) =
+        let gameName = (System.IO.Directory.GetParent path).Name
+        copy (gameName, path)
+
         for l in listeners do
-            l.whenNew path
+            l.whenNew (gameName, path)
 
     member this.Updated(path: FullPath) =
-        for l in listeners do
-            l.whenUpdated path
+        let gameName = (System.IO.Directory.GetParent path).Name
+        copy (gameName, path)
 
-    member this.register(listener: FileSystemListener) = ()
+        for l in listeners do
+            l.whenNew (gameName, path)
+
+    member this.register(listener: FileSystemListener) = listeners <- listener :: listeners
 
 type ExecutionEngine(fs: FileSystem) =
     class

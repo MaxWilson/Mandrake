@@ -27,26 +27,37 @@ module Assert =
 let tests =
     testList
         "POC"
-        [ testCase "basic"
-          <| fun () ->
-              let mutable fakeFileSystemWatcher = {| create = ignore; update = ignore |}
-              let mutable fakeTempDir = Set.empty
+        [   testCase "basic" <| fun () ->
+                let mutable fakeFileSystemWatcher = {| create = ignore; update = ignore |}
+                let mutable fakeTempDir = Map.empty
 
-              let fs =
-                  FileSystem(fun this ->
-                      fakeFileSystemWatcher <-
-                          {| create = (fun path -> this.New path)
-                             update = (fun path -> this.Updated path) |})
+                let fakeCopy (name, path: string) =
+                    fakeTempDir <-
+                        fakeTempDir
+                        |> Map.change
+                            name
+                            (Option.orElse (Some [])
+                            >> Option.map (List.append [ path |> System.IO.Path.GetFileName ]))
 
-              let engine = ExecutionEngine fs
+                let fs =
+                    FileSystem(
+                        fakeCopy,
+                        fun this ->
+                            fakeFileSystemWatcher <-
+                                {|  create = fun (name, path) -> this.New path
+                                    update = fun (name, path) -> this.Updated path |}
+                    )
 
-              let model, dispatch = TestElmish.simpleSynchronous UI.init UI.update
+                let engine = ExecutionEngine fs
 
-              fs.New @"foo\ftherlnd"
-              fs.New @"foo\xibalba.trn"
+                let model, dispatch = TestElmish.simpleSynchronous UI.init UI.update
 
-              Assert.soon
-                  (fun () -> fakeTempDir.Contains @"foo\ftherlnd" && fakeTempDir.Contains @"foo\xibalba.trn")
-                  "Game files should be copied to temp directory"
+                fs.New @"blahblahblah\foo\ftherlnd"
+                fs.New @"blahblahblah\foo\xibalba.trn"
 
-              Assert.eq 2 (3 - 1) ]
+                Assert.soon
+                    (fun () ->
+                        fakeTempDir["foo"] |> List.contains @"ftherlnd"
+                        && fakeTempDir["foo"] |> List.contains @"xibalba.trn")
+                    $"Game files should be copied to temp directory but found only {fakeTempDir}"
+            ]

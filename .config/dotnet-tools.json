@@ -1,12 +1,4 @@
 {
   "version": 1,
-  "isRoot": true,
-  "tools": {
-    "fantomas": {
-      "version": "6.2.3",
-      "commands": [
-        "fantomas"
-      ]
-    }
-  }
+  "isRoot": true
 }
