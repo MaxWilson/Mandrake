@@ -2,13 +2,14 @@ module POC.Test
 
 open Expecto
 open POC
+open POC.UI
 
 // assertion for asynchronous testing
 module Assert =
     let soon f msg =
         task {
             let startTime = System.DateTime.Now
-            let mutable passed = f ()
+            let mutable passed = f()
 
             while (not passed && (System.DateTime.Now - startTime).TotalMilliseconds <= 1000) do
                 do! Async.Sleep 50
@@ -31,15 +32,14 @@ let tests =
                 let mutable fakeFileSystemWatcher = {| create = ignore; update = ignore |}
                 let mutable fakeTempDir = Map.empty
 
-                let fakeCopy (name, path: string) =
-                    fakeTempDir <-
-                        fakeTempDir
-                        |> Map.change
-                            name
-                            (Option.orElse (Some [])
-                            >> Option.map (List.append [ path |> System.IO.Path.GetFileName ]))
-
                 let fs =
+                    let fakeCopy (name, path: string) =
+                        fakeTempDir <-
+                            fakeTempDir
+                            |> Map.change
+                                name
+                                (Option.orElse (Some [])
+                                >> Option.map (List.append [ path |> System.IO.Path.GetFileName ]))
                     FileSystem(
                         fakeCopy,
                         fun this ->
@@ -51,6 +51,7 @@ let tests =
                 let engine = ExecutionEngine fs
 
                 let model, dispatch = TestElmish.simpleSynchronous UI.init UI.update
+                fs.register dispatch
 
                 fs.New @"blahblahblah\foo\ftherlnd"
                 fs.New @"blahblahblah\foo\xibalba.trn"
@@ -60,4 +61,11 @@ let tests =
                         fakeTempDir["foo"] |> List.contains @"ftherlnd"
                         && fakeTempDir["foo"] |> List.contains @"xibalba.trn")
                     $"Game files should be copied to temp directory but found only {fakeTempDir}"
+
+                Assert.soon
+                    (fun () ->
+                        try
+                            model.games.["foo"].files |> List.exists (fun f -> f.detail = Trn && f.Name = "xibalba")
+                        with _ -> false)
+                    $"Game should be added to model but found only {model.games}"
             ]
