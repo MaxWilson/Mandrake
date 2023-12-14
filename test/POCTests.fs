@@ -33,7 +33,7 @@ let tests =
                 let mutable fakeTempDir = Map.empty
 
                 let fs =
-                    let fakeCopy (name, path: string) =
+                    let fakeCopy (name, path: string, _dest) =
                         fakeTempDir <-
                             fakeTempDir
                             |> Map.change
@@ -65,7 +65,7 @@ let tests =
                 Assert.soon
                     (fun () ->
                         try
-                            model.games.["foo"].files |> List.exists (fun f -> f.detail = Trn && f.Name = "xibalba")
+                            model.Value.games.["foo"].files |> List.exists (fun f -> f.detail = Trn && f.Name = "xibalba")
                         with _ -> false)
-                    $"Game should be added to model but found only {model.games}"
+                    $"Game should be added to model but found only {model.Value.games}"
             ]
