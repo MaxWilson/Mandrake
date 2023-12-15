@@ -9,10 +9,20 @@ open Avalonia.Layout
 
 let init _ = { games = Map.empty }
 
-let justUnlocked (gameName: string, game: Game) =
-    let trns = game.files |> List.filter (function { detail = Trn } -> true | _ -> false) |> List.groupBy _.Nation
-    let orders = game.files |> List.filter (function { detail = Orders _ } -> true | _ -> false) |> List.groupBy _.Nation
-    ()
+let justUnlocked (gameName: string, ordersName, game: Game) =
+    let justApproved = game.files |> List.find (function { detail = Orders { approved = true } } as file -> file.Name = ordersName | _ -> false)
+    let trns = game.files |> List.filter (function { detail = Trn } -> true | _ -> false) |> Map.ofListBy (_.Nation >> Option.get)
+    let approvedOrders = game.files |> List.filter (function { detail = Orders { approved = true } } -> true | _ -> false) |> Map.ofListBy (_.Nation >> Option.get)
+    let newCombinations =
+        if approvedOrders.Keys.Count <> trns.Keys.Count then [] // wait for more approvals
+        else
+            let otherNations = trns.Keys |> Seq.filter ((<>) justApproved.Nation.Value) |> List.ofSeq
+            let rec permutationsOf (accumulatedOrders: GameFile list) = function
+                | [] -> [accumulatedOrders]
+                | nation :: rest ->
+                    approvedOrders[nation] |> List.collect (fun approvedOrder -> permutationsOf (approvedOrder :: accumulatedOrders) rest)
+            permutationsOf [justApproved] otherNations
+    newCombinations
 
 let update (fs: FileSystem, ex:ExecutionEngine) msg model =
     match msg with
@@ -40,6 +50,22 @@ let update (fs: FileSystem, ex:ExecutionEngine) msg model =
                         | otherwise -> otherwise
                     )
             }
+        let queue = justUnlocked(gameName, ordersName, game)
+        task {
+            for orders in queue do
+                // asynchronously: make a new, excluded game directory, copy all of the 2h files + ftherlnd into it, and run Dom5.exe on it, while keeping the UI informed of progress
+                let newGameName = [gameName; yield! orders |> List.map _.Name] |> String.join "_"
+                fs.exclude newGameName
+                // copy back ftherlnd
+                for file in game.files do
+                    match file.detail with
+                    | Other -> fs.CopyBackToGame(newGameName, file.frozenPath)
+                    | Trn | Orders _ -> ()
+                for file in orders do
+                    fs.CopyBackToGame(newGameName, file.frozenPath)
+                ex.Execute(newGameName)
+                // todo: update UI somehow. Will probably be obvious once I'm actually looking at the UI.
+        } |> ignore
         { model with games = Map.add gameName game model.games }
 
 

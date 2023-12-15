@@ -23,9 +23,13 @@ type MainWindow() as this =
             let destInfo = System.IO.FileInfo(dest)
             if srcInfo.LastWriteTime > destInfo.LastWriteTime then
                 System.IO.File.Copy(src, dest, true)
+        let copyBack (src, gameName) =
+            let dest = Path.Combine(@"C:\Users\wilso\AppData\Roaming\Dominions5\savedGames", gameName)
+            System.IO.File.Copy(src, dest, true)
         let fs = FileSystem(
                         Dom5.getTempDirPath,
                         copyIfNewer,
+                        copyBack,
                         fun this ->
                             let watcher = Dom5.setupNewWatcher @"C:\Users\wilso\AppData\Roaming\Dominions5\savedGames" (this.New, this.Updated)
                             ()

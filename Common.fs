@@ -153,7 +153,9 @@ module Map =
         m |> Map.tryFind key |> Option.defaultValue Map.empty
     let (|Lookup|_|) key map =
         map |> Map.tryFind key
-    let ofListBy f lst = lst |> List.map (fun x -> f x, x) |> Map.ofList
+    let ofListBy f lst = lst |> List.groupBy f |> List.map (fun (key, values) -> key, values) |> Map.ofList
+    let addMulti key value map =
+        map |> Map.change key (Option.orElse (Some []) >> Option.map (List.append [ value ]))
 module Queue =
     type 't d = 't list
     let append item queue = queue@[item]

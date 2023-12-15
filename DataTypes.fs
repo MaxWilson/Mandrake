@@ -10,7 +10,7 @@ type FileSystemMsg =
 
 type Path = System.IO.Path
 
-type FileSystem(getDestFilePath, copy: FullPath * FullPath -> unit, initialize) as this =
+type FileSystem(getTempFilePath, copy: FullPath * FullPath -> unit, copyBack: string * FullPath -> unit, initialize) as this =
     let mutable excludedDirectories = []
     let mutable listeners = []
     let dispatch msg = for dispatch in listeners do dispatch msg
@@ -23,7 +23,7 @@ type FileSystem(getDestFilePath, copy: FullPath * FullPath -> unit, initialize) 
 
     member this.New(path: FullPath) =
         let gameName = (System.IO.Directory.GetParent path).Name
-        let fileDest, isNewGame = getDestFilePath gameName (Path.GetFileName path)
+        let fileDest, isNewGame = getTempFilePath gameName (Path.GetFileName path)
 
         copy (path, fileDest)
         if isNewGame then
@@ -33,8 +33,10 @@ type FileSystem(getDestFilePath, copy: FullPath * FullPath -> unit, initialize) 
 
     member this.Updated(path: FullPath) =
         let gameName = (System.IO.Directory.GetParent path).Name
-        copy (path, getDestFilePath gameName (Path.GetFileName path) |> fst)
+        copy (path, getTempFilePath gameName (Path.GetFileName path) |> fst)
         // I can't think of any changes needed to model state at this time. Later on maybe we might want to unapprove changed files?
+
+    member this.CopyBackToGame(gameName, src: FullPath) = copyBack(gameName, src)
 
 type ExecutionEngine(fs: FileSystem) =
     member this.Execute (gameName: string) = notImpl @"run C:\usr\bin\steam\steamapps\common\Dominions5\win64\dominions5.exe  -c -T -g <name>"

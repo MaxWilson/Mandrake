@@ -32,59 +32,55 @@ module TestElmish =
 
 [<Tests>]
 let tests =
-    testList
-        "AcceptanceTests"
-        [   testCase "basic" <| fun () ->
-                let mutable fakeFileSystemWatcher = {| create = ignore; update = ignore |}
-                let mutable fakeTempDir = Map.empty
-                let mutable fakeGameDir: Map<string, string list> = Map.empty
+    testList "AcceptanceTests" [
+        testCase "basic" <| fun () ->
+            let mutable fakeFileSystemWatcher = {| create = ignore; update = ignore |}
+            let mutable fakeTempDir = Map.empty
+            let mutable fakeGameDir: Map<string, string list> = Map.empty
 
-                let fs =
-                    let fakeCopy (_path, dest: string) =
-                        // in this case we completely ignore the incoming path because everything we need has been faked into the dest argument
-                        let path, dest = Path.GetFileName dest, Path.GetDirectoryName dest
-                        fakeTempDir <-
-                            fakeTempDir
-                            |> Map.change
-                                dest
-                                (Option.orElse (Some [])
-                                >> Option.map (List.append [ path ]))
-                    FileSystem(
-                        (fun gameName path -> Path.Combine(gameName, path), true), // always pretend to be new, and create a path name that looks like a plausible path but can also be easily parsed by fakeCopy
-                        fakeCopy,
-                        fun this ->
-                            fakeFileSystemWatcher <-
-                                {|  create = fun path -> this.New path
-                                    update = fun path -> this.Updated path |}
-                    )
+            let fs =
+                let fakeCopy (_path, dest: string) =
+                    // in this case we completely ignore the incoming path because everything we need has been faked into the dest argument
+                    let path, dest = Path.GetFileName dest, Path.GetDirectoryName dest
+                    fakeTempDir <- fakeTempDir |> Map.addMulti dest path
+                let copyBack (gameName, src: FullPath) = fakeGameDir <- fakeGameDir |> Map.addMulti gameName (Path.GetFileName src)
+                FileSystem(
+                    (fun gameName path -> Path.Combine(gameName, path), true), // always pretend to be new, and create a path name that looks like a plausible path but can also be easily parsed by fakeCopy
+                    fakeCopy,
+                    copyBack,
+                    fun this ->
+                        fakeFileSystemWatcher <-
+                            {|  create = fun path -> this.New path
+                                update = fun path -> this.Updated path |}
+                )
 
-                let engine = ExecutionEngine fs
+            let engine = ExecutionEngine fs
 
-                let model, dispatch = TestElmish.simpleSynchronous init (update (fs, engine))
-                fs.register (FileSystemMsg >> dispatch)
+            let model, dispatch = TestElmish.simpleSynchronous init (update (fs, engine))
+            fs.register (FileSystemMsg >> dispatch)
 
-                fakeFileSystemWatcher.create @"blahblahblah\foo\ftherlnd"
-                fakeFileSystemWatcher.create @"blahblahblah\foo\xibalba.trn"
+            fakeFileSystemWatcher.create @"blahblahblah\foo\ftherlnd"
+            fakeFileSystemWatcher.create @"blahblahblah\foo\xibalba.trn"
 
-                Assert.soon
-                    (fun () -> fakeTempDir["foo"] |> List.contains @"ftherlnd" && fakeTempDir["foo"] |> List.contains @"xibalba.trn")
-                    (fun () -> $"Game files should be copied to temp directory but found only {fakeTempDir}")
+            Assert.soon
+                (fun () -> fakeTempDir["foo"] |> List.contains @"ftherlnd" && fakeTempDir["foo"] |> List.contains @"xibalba.trn")
+                (fun () -> $"Game files should be copied to temp directory but found only {fakeTempDir}")
 
-                let hasFile gameName fileName () = try model.Value.games.[gameName].files |> List.exists (fun f -> f.Name = fileName) with _ -> false
-                let missingFile fMsg () : string =
-                    let games = model.Value.games |> Map.map(fun key game -> game.files |> List.map (fun f -> $@"{key}\{f.Name}"))
-                    fMsg (games.Values |> List.ofSeq |> List.collect id)
+            let hasFile gameName fileName () = try model.Value.games.[gameName].files |> List.exists (fun f -> f.Name = fileName) with _ -> false
+            let missingFile fMsg () : string =
+                let games = model.Value.games |> Map.map(fun key game -> game.files |> List.map (fun f -> $@"{key}\{f.Name}"))
+                fMsg (games.Values |> List.ofSeq |> List.collect id)
 
-                Assert.soon
-                    (hasFile "foo" "xibalba.trn")
-                    (missingFile (sprintf @"foo\xibalba.trn should be added to model but found only %A"))
-                fakeFileSystemWatcher.create @"blahblahblah\foo\xibalba.2h"
-                Assert.soon
-                    (hasFile "foo" "xibalba1")
-                    (missingFile (sprintf @"foo\xibalba.2h should be added to model as xibalba1 but found only %A"))
+            Assert.soon
+                (hasFile "foo" "xibalba.trn")
+                (missingFile (sprintf @"foo\xibalba.trn should be added to model but found only %A"))
+            fakeFileSystemWatcher.create @"blahblahblah\foo\xibalba.2h"
+            Assert.soon
+                (hasFile "foo" "xibalba1")
+                (missingFile (sprintf @"foo\xibalba.2h should be added to model as xibalba1 but found only %A"))
 
-                Approve("foo", "xibalba1") |> dispatch
-                Assert.soon
-                    (fun () -> fs.exclusions |> List.contains "foo_xibalba" && fakeGameDir["foo_xibalba1"] |> List.containsAll ["xibalba.2h"; "ftherlnd"])
-                    (fun () -> "New game directory should soon contain copies of all the 2h files and ftherlnd so we can execute, and should be marked as excluded so we don't try to copy it again")
+            Approve("foo", "xibalba1") |> dispatch
+            Assert.soon
+                (fun () -> fs.exclusions |> List.contains "foo_xibalba1" && fakeGameDir["foo_xibalba1"] |> List.containsAll ["xibalba.2h"; "ftherlnd"])
+                (fun () -> "New game directory should soon contain copies of all the 2h files and ftherlnd so we can execute, and should be marked as excluded so we don't try to copy it again")
             ]
