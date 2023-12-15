@@ -10,20 +10,10 @@ type FileSystemMsg =
 
 type Path = System.IO.Path
 
-type FileSystem(copy: string * FullPath * FullPath -> unit, initialize) as this =
+type FileSystem(getDestFilePath, copy: FullPath * FullPath -> unit, initialize) as this =
     let mutable excludedDirectories = []
     let mutable listeners = []
     let dispatch msg = for dispatch in listeners do dispatch msg
-    let mutable gameDests: Map<string, DirectoryPath> = Map.empty
-    let getDir gameName =
-        match gameDests |> Map.tryFind gameName with
-            | Some dest -> dest, false
-            | None ->
-                let dest = Path.Combine (Path.GetTempPath(), gameName)
-                let dir = System.IO.Directory.CreateDirectory dest
-                if not dir.Exists then shouldntHappen "Couldn't create temp directory"
-                gameDests <- Map.add gameName dest gameDests
-                dest, true
 
     do initialize this
 
@@ -33,23 +23,21 @@ type FileSystem(copy: string * FullPath * FullPath -> unit, initialize) as this 
 
     member this.New(path: FullPath) =
         let gameName = (System.IO.Directory.GetParent path).Name
-        let destDir, isNewGame = getDir gameName
+        let fileDest, isNewGame = getDestFilePath gameName (Path.GetFileName path)
 
-        copy (gameName, path, destDir)
+        copy (path, fileDest)
         if isNewGame then
             dispatch (NewGame(gameName))
 
-        let path = Path.Combine (destDir, Path.GetFileName path)
-        dispatch (NewFile(gameName, path))
+        dispatch (NewFile(gameName, fileDest))
 
     member this.Updated(path: FullPath) =
         let gameName = (System.IO.Directory.GetParent path).Name
-        copy (gameName, path, getDir gameName |> fst)
+        copy (path, getDestFilePath gameName (Path.GetFileName path) |> fst)
         // I can't think of any changes needed to model state at this time. Later on maybe we might want to unapprove changed files?
 
 type ExecutionEngine(fs: FileSystem) =
-    class
-    end
+    member this.Execute (gameName: string) = notImpl @"run C:\usr\bin\steam\steamapps\common\Dominions5\win64\dominions5.exe  -c -T -g <name>"
 
 module UI =
     type OrdersDetail = {
@@ -65,8 +53,9 @@ module UI =
         frozenPath: FullPath // not subject to change directly by Dom5.exe because it's in a temp directory, hence "frozen"
         detail: FileDetail
         }
-        with member this.Name = (match this.detail with Orders detail -> detail.name |> Option.defaultValue (Path.GetFileNameWithoutExtension this.frozenPath + detail.index.ToString()) | Trn | Other -> Path.GetFileName this.frozenPath) // defaults to file path but can be renamed to describe the kind of orders, e.g. kamikaze vs. cautious. Will show up in name of generated games.
-
+        with
+        member this.Name = (match this.detail with Orders detail -> detail.name |> Option.defaultValue (Path.GetFileNameWithoutExtension this.frozenPath + detail.index.ToString()) | Trn | Other -> Path.GetFileName this.frozenPath) // defaults to file path but can be renamed to describe the kind of orders, e.g. kamikaze vs. cautious. Will show up in name of generated games.
+        member this.Nation = match this.detail with Orders _ | Trn -> Some (Path.GetFileNameWithoutExtension this.frozenPath) | Other -> None
     type Game = {
         name: string
         files: GameFile list

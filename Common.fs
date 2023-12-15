@@ -133,6 +133,7 @@ module List =
     let rec maxBy' f (lst: _ list) = lst |> Seq.map f |> Seq.max
     let rec minBy' f (lst: _ list) = lst |> Seq.map f |> Seq.min
     let containsAll values lst : bool = values |> every (flip List.contains lst)
+
 module Array =
     let rec maxBy' f (lst: _ array) = lst |> Seq.map f |> Seq.max
     let rec minBy' f (lst: _ array) = lst |> Seq.map f |> Seq.min
@@ -152,7 +153,7 @@ module Map =
         m |> Map.tryFind key |> Option.defaultValue Map.empty
     let (|Lookup|_|) key map =
         map |> Map.tryFind key
-
+    let ofListBy f lst = lst |> List.map (fun x -> f x, x) |> Map.ofList
 module Queue =
     type 't d = 't list
     let append item queue = queue@[item]

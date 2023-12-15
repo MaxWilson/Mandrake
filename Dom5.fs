@@ -10,6 +10,30 @@ let r = Random()
 let ignoreThisFile (file: FullPath) =
     Path.GetDirectoryName file <> "newlords"
 
+let getTempDirPath : _ -> _ -> FullPath * bool=
+    let mutable gameDests: Map<string, DirectoryPath> = Map.empty
+    fun gameName fileName ->
+        match gameDests |> Map.tryFind gameName with
+        | Some dest -> Path.Combine(dest, fileName), false
+        | None ->
+            let dest = Path.Combine (Path.GetTempPath(), gameName)
+            let dir = System.IO.Directory.CreateDirectory dest
+            if not dir.Exists then shouldntHappen "Couldn't create temp directory"
+            gameDests <- Map.add gameName dest gameDests
+            Path.Combine(dest, fileName), true
+
+let setupNewWatcher (savedGamesDirectory: DirectoryPath) (onNew, onUpdated) =
+    let mutable files =
+        Directory.GetFiles(savedGamesDirectory, "ftherlnd", System.IO.SearchOption.AllDirectories)
+        |> Array.append (Directory.GetFiles(savedGamesDirectory, "*.trn", System.IO.SearchOption.AllDirectories))
+        |> Array.append (Directory.GetFiles(savedGamesDirectory, "*.2h", System.IO.SearchOption.AllDirectories))
+        |> Array.filter ignoreThisFile
+    files |> Array.iter onNew
+    let watcher = new FileSystemWatcher (System.IO.Path.GetFullPath savedGamesDirectory)
+    watcher.Changed.Add (fun args -> onUpdated args.FullPath)
+    watcher.Created.Add (fun args -> onNew args.FullPath)
+    watcher
+
 // let setup (gameTurns: GameTurn list option) (settings: Settings.FileSettings) : GameTurn list Task = backgroundTask {
     // // scan C:\Users\wilso\AppData\Roaming\Dominions5\ or whatever for saved games
     // let uiSynchronizationContext = System.Threading.SynchronizationContext.Current

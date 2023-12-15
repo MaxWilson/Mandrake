@@ -9,7 +9,12 @@ open Avalonia.Layout
 
 let init _ = { games = Map.empty }
 
-let update msg model =
+let justUnlocked (gameName: string, game: Game) =
+    let trns = game.files |> List.filter (function { detail = Trn } -> true | _ -> false) |> List.groupBy _.Nation
+    let orders = game.files |> List.filter (function { detail = Orders _ } -> true | _ -> false) |> List.groupBy _.Nation
+    ()
+
+let update (fs: FileSystem, ex:ExecutionEngine) msg model =
     match msg with
     | FileSystemMsg(NewGame(game)) ->
         { model with games = Map.change game (Option.orElse (Some { name = game; files = [] })) model.games }
@@ -25,7 +30,18 @@ let update msg model =
         let file = { frozenPath = path; detail = detail }
         { model with games = Map.add game.name { game with files = file :: game.files } model.games }
     | Approve(gameName, ordersName) ->
-        notImpl "approval"
+        let game = {
+            model.games[gameName]
+            with
+                files =
+                    model.games[gameName].files
+                    |> List.map (function
+                        | { detail = Orders det } as f when f.Name = ordersName -> { f with detail = Orders { det with approved = true } }
+                        | otherwise -> otherwise
+                    )
+            }
+        { model with games = Map.add gameName game model.games }
+
 
 let view (model: Model) dispatch : IView =
     View.DockPanel [

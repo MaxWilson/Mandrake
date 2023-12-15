@@ -18,7 +18,21 @@ type MainWindow() as this =
     inherit HostWindow()
     do
         base.Title <- "Counter Example"
-        Elmish.Program.mkSimple init update view
+        let copyIfNewer (src, dest) =
+            let srcInfo = System.IO.FileInfo(src)
+            let destInfo = System.IO.FileInfo(dest)
+            if srcInfo.LastWriteTime > destInfo.LastWriteTime then
+                System.IO.File.Copy(src, dest, true)
+        let fs = FileSystem(
+                        Dom5.getTempDirPath,
+                        copyIfNewer,
+                        fun this ->
+                            let watcher = Dom5.setupNewWatcher @"C:\Users\wilso\AppData\Roaming\Dominions5\savedGames" (this.New, this.Updated)
+                            ()
+                    )
+
+        let engine = ExecutionEngine fs
+        Elmish.Program.mkSimple init (update(fs, engine)) view
         |> Program.withHost this
         |> Program.withSubscription (fun model ->
             Sub.batch [
