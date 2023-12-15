@@ -1,8 +1,8 @@
 module POC.Test
 
 open Expecto
-open POC
-open POC.UI
+open DataTypes.UI
+open UI.Main
 
 // assertion for asynchronous testing
 module Assert =
@@ -24,10 +24,16 @@ module Assert =
         if expected <> actual then
             failwithf $"Expected {expected} but got {actual}"
 
+module TestElmish =
+    let simpleSynchronous init update =
+        let model = ref (init ())
+        let dispatch msg = model.Value <- update msg model.Value
+        model, dispatch
+
 [<Tests>]
 let tests =
     testList
-        "POC"
+        "AcceptanceTests"
         [   testCase "basic" <| fun () ->
                 let mutable fakeFileSystemWatcher = {| create = ignore; update = ignore |}
                 let mutable fakeTempDir = Map.empty
@@ -51,7 +57,7 @@ let tests =
 
                 let engine = ExecutionEngine fs
 
-                let model, dispatch = TestElmish.simpleSynchronous UI.init UI.update
+                let model, dispatch = TestElmish.simpleSynchronous init update
                 fs.register (FileSystemMsg >> dispatch)
 
                 fakeFileSystemWatcher.create @"blahblahblah\foo\ftherlnd"

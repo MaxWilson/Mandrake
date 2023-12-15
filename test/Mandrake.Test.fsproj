@@ -8,7 +8,7 @@
     <Compile Include="Scratch1.fsx" />
     <Compile Include="Sample.fs" />
     <Compile Include="TDD.fs" />
-    <Compile Include="POCTests.fs" />
+    <Compile Include="Basic.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>

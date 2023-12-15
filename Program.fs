@@ -18,16 +18,16 @@ type MainWindow() as this =
     inherit HostWindow()
     do
         base.Title <- "Counter Example"
-        Elmish.Program.mkProgram init update view
+        Elmish.Program.mkSimple init update view
         |> Program.withHost this
         |> Program.withSubscription (fun model ->
             Sub.batch [
-                match model.acceptance.gameTurns, model.fileSettings with
-                | Some turns, { exePath = Some exePath; dataDirectory = Some dataDirectory } ->
-                    // we want to resubscribe if either the settings change or a new game gets created
-                    let prefix = turns |> List.map (fun gt -> gt.name) |> List.append [dataDirectory; exePath] |> String.concat ";"
-                    Sub.map prefix Acceptance (UI.AcceptanceQueue.subscribe turns model.fileSettings)
-                | _ -> ()
+                // match model.acceptance.gameTurns, model.fileSettings with
+                // | Some turns, { exePath = Some exePath; dataDirectory = Some dataDirectory } ->
+                //     // we want to resubscribe if either the settings change or a new game gets created
+                //     let prefix = turns |> List.map (fun gt -> gt.name) |> List.append [dataDirectory; exePath] |> String.concat ";"
+                //     Sub.map prefix Acceptance (UI.AcceptanceQueue.subscribe turns model.fileSettings)
+                // | _ -> ()
                 ]
             )
 #if DEBUG

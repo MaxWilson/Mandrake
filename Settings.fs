@@ -36,14 +36,14 @@ let getGameTurns() =
     if File.Exists gameDataPath then
         try
             let json = File.ReadAllText gameDataPath
-            match Decode.Auto.fromString<GameTurn list> json with
+            match Decode.Auto.fromString<Map<string, UI.Game>> json with
             | Ok settings -> Some settings
             | Error _ -> fresh
         with _ -> fresh
     else fresh
 
 let key = obj()
-let saveGameTurns (gameTurns: GameTurn list) =
+let saveGameTurns (gameTurns: Map<string, UI.Game>) =
     lock key (fun () ->
         let json = Encode.Auto.toString gameTurns
         Directory.CreateDirectory(Path.GetDirectoryName gameDataPath) |> ignore
