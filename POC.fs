@@ -10,10 +10,10 @@ type FileSystemMsg =
 type Path = System.IO.Path
 
 type FileSystem(copy: string * FullPath * FullPath -> unit, initialize) as this =
+    let mutable excludedDirectories = []
     let mutable listeners = []
     let dispatch msg = for dispatch in listeners do dispatch msg
     let mutable gameDests: Map<string, DirectoryPath> = Map.empty
-    do initialize this
     let getDir gameName =
         match gameDests |> Map.tryFind gameName with
             | Some dest -> dest, false
@@ -23,6 +23,12 @@ type FileSystem(copy: string * FullPath * FullPath -> unit, initialize) as this 
                 if not dir.Exists then shouldntHappen "Couldn't create temp directory"
                 gameDests <- Map.add gameName dest gameDests
                 dest, true
+
+    do initialize this
+
+    member this.exclude dir = excludedDirectories <- dir :: excludedDirectories
+    member this.exclusions = excludedDirectories
+    member this.register listener = listeners <- listener :: listeners
 
     member this.New(path: FullPath) =
         let gameName = (System.IO.Directory.GetParent path).Name
@@ -39,8 +45,6 @@ type FileSystem(copy: string * FullPath * FullPath -> unit, initialize) as this 
         let gameName = (System.IO.Directory.GetParent path).Name
         copy (gameName, path, getDir gameName |> fst)
         // I can't think of any changes needed to model state at this time. Later on maybe we might want to unapprove changed files?
-
-    member this.register(listener) = listeners <- listener :: listeners
 
 type ExecutionEngine(fs: FileSystem) =
     class
@@ -64,7 +68,6 @@ module UI =
 
     type Game = {
         name: string
-        exclude: bool
         files: GameFile list
         }
     type Model = {
@@ -78,9 +81,9 @@ module UI =
     let update msg model =
         match msg with
         | FileSystemMsg(NewGame(game)) ->
-            { model with games = Map.change game (Option.orElse (Some { name = game; exclude = false; files = [] })) model.games }
+            { model with games = Map.change game (Option.orElse (Some { name = game; files = [] })) model.games }
         | FileSystemMsg(NewFile(game, path)) ->
-            let game = model.games |> Map.tryFind game |> Option.defaultValue { name = game; exclude = false; files = [] }
+            let game = model.games |> Map.tryFind game |> Option.defaultValue { name = game; files = [] }
             let detail =
                 match Path.GetExtension path with
                 | ".trn" -> Trn

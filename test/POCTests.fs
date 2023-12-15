@@ -31,7 +31,7 @@ let tests =
         [   testCase "basic" <| fun () ->
                 let mutable fakeFileSystemWatcher = {| create = ignore; update = ignore |}
                 let mutable fakeTempDir = Map.empty
-                let mutable fakeGameDir = Map.empty
+                let mutable fakeGameDir: Map<string, string list> = Map.empty
 
                 let fs =
                     let fakeCopy (name, path: string, _dest) =
@@ -75,4 +75,9 @@ let tests =
                 Assert.soon
                     (hasFile "foo" "xibalba1")
                     (missingFile (sprintf @"foo\xibalba.2h should be added to model as xibalba1 but found only %A"))
+
+                Approve("foo", "xibalba1") |> dispatch
+                Assert.soon
+                    (fun () -> fs.exclusions |> List.contains "foo_xibalba" && fakeGameDir["foo_xibalba1"] |> List.containsAll ["xibalba.2h"; "ftherlnd"])
+                    (fun () -> "New game directory should soon contain copies of all the 2h files and ftherlnd so we can execute, and should be marked as excluded so we don't try to copy it again")
             ]

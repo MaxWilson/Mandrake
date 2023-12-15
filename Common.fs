@@ -132,7 +132,7 @@ module List =
                     | e -> e
     let rec maxBy' f (lst: _ list) = lst |> Seq.map f |> Seq.max
     let rec minBy' f (lst: _ list) = lst |> Seq.map f |> Seq.min
-
+    let containsAll values lst : bool = values |> every (flip List.contains lst)
 module Array =
     let rec maxBy' f (lst: _ array) = lst |> Seq.map f |> Seq.max
     let rec minBy' f (lst: _ array) = lst |> Seq.map f |> Seq.min
