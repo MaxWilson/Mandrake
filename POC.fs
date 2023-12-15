@@ -48,6 +48,7 @@ type ExecutionEngine(fs: FileSystem) =
 
 module UI =
     type OrdersDetail = {
+        index: int
         approved: bool
         name: string option // defaults to file path but can be renamed to describe the kind of orders, e.g. kamikaze vs. cautious. Will show up in name of generated games.
         }
@@ -59,7 +60,7 @@ module UI =
         frozenPath: FullPath // not subject to change directly by Dom5.exe because it's in a temp directory, hence "frozen"
         detail: FileDetail
         }
-        with member this.Name = (match this.detail with Orders detail -> detail.name | Trn | Other -> None) |> Option.defaultValue (Path.GetFileNameWithoutExtension this.frozenPath) // defaults to file path but can be renamed to describe the kind of orders, e.g. kamikaze vs. cautious. Will show up in name of generated games.
+        with member this.Name = (match this.detail with Orders detail -> detail.name |> Option.defaultValue (Path.GetFileNameWithoutExtension this.frozenPath + detail.index.ToString()) | Trn | Other -> Path.GetFileName this.frozenPath) // defaults to file path but can be renamed to describe the kind of orders, e.g. kamikaze vs. cautious. Will show up in name of generated games.
 
     type Game = {
         name: string
@@ -69,21 +70,28 @@ module UI =
     type Model = {
         games: Map<string, Game>
         }
+    type Msg =
+        | FileSystemMsg of FileSystemMsg
+        | Approve of gameName: string * ordersName: string
 
     let init _ = { games = Map.empty }
     let update msg model =
         match msg with
-        | NewGame(game) ->
+        | FileSystemMsg(NewGame(game)) ->
             { model with games = Map.change game (Option.orElse (Some { name = game; exclude = false; files = [] })) model.games }
-        | NewFile(game, path) ->
+        | FileSystemMsg(NewFile(game, path)) ->
             let game = model.games |> Map.tryFind game |> Option.defaultValue { name = game; exclude = false; files = [] }
             let detail =
                 match Path.GetExtension path with
                 | ".trn" -> Trn
-                | ".ord" -> Orders { name = None; approved = false }
+                | ".2h" ->
+                    let priorIx = game.files |> List.collect (function { detail = Orders { index = ix } } -> [ ix ] | _ -> []) |> List.append [0] |> List.max
+                    Orders { name = None; approved = false; index = priorIx + 1 }
                 | _ -> Other
             let file = { frozenPath = path; detail = detail }
             { model with games = Map.add game.name { game with files = file :: game.files } model.games }
+        | Approve(gameName, ordersName) ->
+            notImpl "approval"
 
 module TestElmish =
     let simpleSynchronous init update =

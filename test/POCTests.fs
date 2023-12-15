@@ -16,7 +16,7 @@ module Assert =
                 passed <- f ()
 
             if not passed then
-                failwith msg
+                failwith (msg())
         }
         |> Task.wait
 
@@ -31,6 +31,7 @@ let tests =
         [   testCase "basic" <| fun () ->
                 let mutable fakeFileSystemWatcher = {| create = ignore; update = ignore |}
                 let mutable fakeTempDir = Map.empty
+                let mutable fakeGameDir = Map.empty
 
                 let fs =
                     let fakeCopy (name, path: string, _dest) =
@@ -44,28 +45,34 @@ let tests =
                         fakeCopy,
                         fun this ->
                             fakeFileSystemWatcher <-
-                                {|  create = fun (name, path) -> this.New path
-                                    update = fun (name, path) -> this.Updated path |}
+                                {|  create = fun path -> this.New path
+                                    update = fun path -> this.Updated path |}
                     )
 
                 let engine = ExecutionEngine fs
 
                 let model, dispatch = TestElmish.simpleSynchronous UI.init UI.update
-                fs.register dispatch
+                fs.register (FileSystemMsg >> dispatch)
 
-                fs.New @"blahblahblah\foo\ftherlnd"
-                fs.New @"blahblahblah\foo\xibalba.trn"
+                fakeFileSystemWatcher.create @"blahblahblah\foo\ftherlnd"
+                fakeFileSystemWatcher.create @"blahblahblah\foo\xibalba.trn"
 
                 Assert.soon
                     (fun () ->
                         fakeTempDir["foo"] |> List.contains @"ftherlnd"
                         && fakeTempDir["foo"] |> List.contains @"xibalba.trn")
-                    $"Game files should be copied to temp directory but found only {fakeTempDir}"
+                    (fun () -> $"Game files should be copied to temp directory but found only {fakeTempDir}")
+
+                let hasFile gameName fileName () = try model.Value.games.[gameName].files |> List.exists (fun f -> f.Name = fileName) with _ -> false
+                let missingFile fMsg () : string =
+                    let games = model.Value.games |> Map.map(fun key game -> game.files |> List.map (fun f -> $@"{key}\{f.Name}"))
+                    fMsg (games.Values |> List.ofSeq |> List.collect id)
 
                 Assert.soon
-                    (fun () ->
-                        try
-                            model.Value.games.["foo"].files |> List.exists (fun f -> f.detail = Trn && f.Name = "xibalba")
-                        with _ -> false)
-                    $"Game should be added to model but found only {model.Value.games}"
+                    (hasFile "foo" "xibalba.trn")
+                    (missingFile (sprintf @"foo\xibalba.trn should be added to model but found only %A"))
+                fakeFileSystemWatcher.create @"blahblahblah\foo\xibalba.2h"
+                Assert.soon
+                    (hasFile "foo" "xibalba1")
+                    (missingFile (sprintf @"foo\xibalba.2h should be added to model as xibalba1 but found only %A"))
             ]
