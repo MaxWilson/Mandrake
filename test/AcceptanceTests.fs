@@ -1,4 +1,4 @@
-module POC.Test
+module Test
 
 open Expecto
 open DataTypes.UI
