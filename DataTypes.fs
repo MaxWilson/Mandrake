@@ -59,9 +59,15 @@ module UI =
         with
         member this.Name = (match this.detail with Orders detail -> detail.name |> Option.defaultValue (detail.nation + detail.index.ToString()) | Trn | Other -> Path.GetFileName this.frozenPath) // defaults to file path but can be renamed to describe the kind of orders, e.g. kamikaze vs. cautious. Will show up in name of generated games.
         member this.Nation = match this.detail with Orders _ | Trn -> Some (Path.GetFileNameWithoutExtension this.frozenPath) | Other -> None
+    type Status = NotStarted | InProgress | Complete
+    type Permutation = {
+        name: string
+        status: Status
+        }
     type Game = {
         name: string
         files: GameFile list
+        children: Permutation list
         }
     type Model = {
         games: Map<string, Game>
@@ -69,3 +75,4 @@ module UI =
     type Msg =
         | FileSystemMsg of FileSystemMsg
         | Approve of gameName: string * ordersName: string
+        | UpdatePermutationStatus of gameName: string * permutationName: string * status: Status

@@ -7,7 +7,7 @@ open Elmish
 open DataTypes.UI
 open Avalonia.Layout
 
-let init _ = { games = Map.empty }
+let init _ = { games = Map.empty }, Cmd.Empty
 
 let justUnlocked (gameName: string, ordersName, game: Game) =
     let justApproved = game.files |> List.find (function { detail = Orders { approved = true } } as file -> file.Name = ordersName | _ -> false)
@@ -27,9 +27,9 @@ let justUnlocked (gameName: string, ordersName, game: Game) =
 let update (fs: FileSystem, ex:ExecutionEngine) msg model =
     match msg with
     | FileSystemMsg(NewGame(game)) ->
-        { model with games = Map.change game (Option.orElse (Some { name = game; files = [] })) model.games }
+        { model with games = Map.change game (Option.orElse (Some { name = game; files = []; children = [] })) model.games }, Cmd.Empty
     | FileSystemMsg(NewFile(game, path)) ->
-        let game = model.games |> Map.tryFind game |> Option.defaultValue { name = game; files = [] }
+        let game = model.games |> Map.tryFind game |> Option.defaultValue { name = game; files = []; children = [] }
         let detail =
             match Path.GetExtension path with
             | ".trn" -> Trn
@@ -39,7 +39,7 @@ let update (fs: FileSystem, ex:ExecutionEngine) msg model =
                 Orders { name = None; approved = false; index = priorIx + 1; nation = nation }
             | _ -> Other
         let file = { frozenPath = path; detail = detail }
-        { model with games = Map.add game.name { game with files = file :: game.files } model.games }
+        { model with games = Map.add game.name { game with files = file :: game.files } model.games }, Cmd.Empty
     | Approve(gameName, ordersName) ->
         let game = {
             model.games[gameName]
@@ -52,22 +52,31 @@ let update (fs: FileSystem, ex:ExecutionEngine) msg model =
                     )
             }
         let queue = justUnlocked(gameName, ordersName, game)
-        task {
-            for orders in queue do
-                // asynchronously: make a new, excluded game directory, copy all of the 2h files + ftherlnd into it, and run Dom5.exe on it, while keeping the UI informed of progress
-                let newGameName = [gameName; yield! orders |> List.map _.Name] |> String.join "_"
-                fs.exclude newGameName
-                // copy back ftherlnd
-                for file in game.files do
-                    match file.detail with
-                    | Other -> fs.CopyBackToGame(newGameName, file.frozenPath)
-                    | Trn | Orders _ -> ()
-                for file in orders do
-                    fs.CopyBackToGame(newGameName, file.frozenPath)
-                ex.Execute(newGameName)
-                // todo: update UI somehow. Will probably be obvious once I'm actually looking at the UI.
-        } |> ignore
-        { model with games = Map.add gameName game model.games }
+        let getPermutationName (orders: GameFile list) = [gameName; yield! orders |> List.map _.Name] |> String.join "_"
+        let game = { game with children = queue |> List.map (fun orders -> { name = getPermutationName orders; status = NotStarted }) |> List.append game.children }
+        { model with games = Map.add gameName game model.games },
+            Cmd.ofEffect (fun dispatch ->
+                task {
+                    for orders in queue do
+                        // asynchronously: make a new, excluded game directory, copy all of the 2h files + ftherlnd into it, and run Dom5.exe on it, while keeping the UI informed of progress
+                        let newGameName = getPermutationName orders
+                        dispatch (UpdatePermutationStatus(gameName, newGameName, InProgress))
+                        fs.exclude newGameName
+                        // copy back ftherlnd
+                        for file in game.files do
+                            match file.detail with
+                            | Other -> fs.CopyBackToGame(newGameName, file.frozenPath)
+                            | Trn | Orders _ -> ()
+                        for file in orders do
+                            fs.CopyBackToGame(newGameName, file.frozenPath)
+                        ex.Execute(newGameName)
+                        dispatch (UpdatePermutationStatus(gameName, newGameName, Complete))
+                } |> ignore
+                )
+    | UpdatePermutationStatus(gameName, permutationName, status) ->
+        let game = model.games[gameName]
+        let game = { game with children = game.children |> List.map (fun p -> if p.name = permutationName then { p with status = status } else p) }
+        { model with games = model.games |> Map.add gameName game }, Cmd.Empty
 
 
 let view (model: Model) dispatch : IView =
@@ -97,6 +106,7 @@ let view (model: Model) dispatch : IView =
                                     if not det.approved then
                                         Button.create [
                                             Button.content "Approve"
+                                            Button.onClick(fun _ -> dispatch (Approve(game.name, file.Name)))
                                             ]
                                     ]
                                 ]

@@ -29,6 +29,21 @@ module TestElmish =
         let model = ref (init ())
         let dispatch msg = model.Value <- update msg model.Value
         model, dispatch
+    let synchronous init update =
+        let initModel, initCmds = init()
+        let model = ref (initModel)
+        let mutable cmds: _ list = initCmds
+        let rec dispatch msg =
+            let model', cmds' = update msg model.Value
+            model.Value <- model'
+            cmds <- cmds'@cmds
+            while not (List.isEmpty cmds) do
+                match cmds with
+                | [] -> ()
+                | cmd::tail ->
+                    cmds <- tail
+                    cmd dispatch
+        model, dispatch
 
 [<Tests>]
 let tests =
@@ -56,8 +71,9 @@ let tests =
 
             let engine = ExecutionEngine fs
 
-            let model, dispatch = TestElmish.simpleSynchronous init (update (fs, engine))
+            let model, dispatch = TestElmish.synchronous init (update (fs, engine))
             fs.register (FileSystemMsg >> dispatch)
+            fs.initialize()
 
             fakeFileSystemWatcher.create @"blahblahblah\foo\ftherlnd"
             fakeFileSystemWatcher.create @"blahblahblah\foo\xibalba.trn"

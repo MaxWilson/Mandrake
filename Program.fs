@@ -36,7 +36,7 @@ type MainWindow() as this =
                     )
 
         let engine = ExecutionEngine fs
-        Elmish.Program.mkSimple init (update(fs, engine)) view
+        Elmish.Program.mkProgram init (update(fs, engine)) view
         |> Program.withHost this
         |> Program.withSubscription (fun model ->
             Sub.batch [
