@@ -17,7 +17,7 @@ open UI.Main
 type MainWindow() as this =
     inherit HostWindow()
     do
-        base.Title <- "Counter Example"
+        base.Title <- "Mandrake for Dom5"
         let copyIfNewer (src, dest) =
             let srcInfo = System.IO.FileInfo(src)
             let destInfo = System.IO.FileInfo(dest)
