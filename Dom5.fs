@@ -8,7 +8,8 @@ open DataTypes
 let r = Random()
 
 let ignoreThisFile (file: FullPath) =
-    Path.GetDirectoryName file <> "newlords"
+    let getDirectoryName (path: FullPath) = path |> Path.GetDirectoryName |> Path.GetFileName
+    getDirectoryName file = "newlords"
 
 let getTempDirPath : _ -> _ -> FullPath * bool=
     let mutable gameDests: Map<string, DirectoryPath> = Map.empty
@@ -27,7 +28,7 @@ let setupNewWatcher (savedGamesDirectory: DirectoryPath) (onNew, onUpdated) =
         Directory.GetFiles(savedGamesDirectory, "ftherlnd", System.IO.SearchOption.AllDirectories)
         |> Array.append (Directory.GetFiles(savedGamesDirectory, "*.trn", System.IO.SearchOption.AllDirectories))
         |> Array.append (Directory.GetFiles(savedGamesDirectory, "*.2h", System.IO.SearchOption.AllDirectories))
-        |> Array.filter ignoreThisFile
+        |> Array.filter (not << ignoreThisFile)
     files |> Array.iter onNew
     let watcher = new FileSystemWatcher (System.IO.Path.GetFullPath savedGamesDirectory)
     watcher.Changed.Add (fun args -> onUpdated args.FullPath)
