@@ -34,8 +34,9 @@ let update (fs: FileSystem, ex:ExecutionEngine) msg model =
             match Path.GetExtension path with
             | ".trn" -> Trn
             | ".2h" ->
-                let priorIx = game.files |> List.collect (function { detail = Orders { index = ix } } -> [ ix ] | _ -> []) |> List.append [0] |> List.max
-                Orders { name = None; approved = false; index = priorIx + 1 }
+                let nation = Path.GetFileNameWithoutExtension path
+                let priorIx = game.files |> List.collect (function { detail = Orders { index = ix; nation = nation } } when nation = nation -> [ ix ] | _ -> []) |> List.append [0] |> List.max
+                Orders { name = None; approved = false; index = priorIx + 1; nation = nation }
             | _ -> Other
         let file = { frozenPath = path; detail = detail }
         { model with games = Map.add game.name { game with files = file :: game.files } model.games }
@@ -70,7 +71,7 @@ let update (fs: FileSystem, ex:ExecutionEngine) msg model =
 
 
 let view (model: Model) dispatch : IView =
-    View.DockPanel [
+    View.StackPanel [
         TextBlock.create [
             TextBlock.classes ["title"]
             TextBlock.text $"Games"
@@ -85,14 +86,21 @@ let view (model: Model) dispatch : IView =
                         // TextBox.onTextChanged (fun txt -> exePath.Set (Some txt); exePathValid.Set ((String.IsNullOrWhiteSpace txt |> not) && File.Exists txt))
                         ]
                     for file in game.files do
-                        StackPanel.create [
-                            StackPanel.orientation Orientation.Horizontal
-                            StackPanel.children [
-                                TextBlock.create [
-                                    TextBlock.text (file.Name)
+                        match file.detail with
+                        | Orders det ->
+                            StackPanel.create [
+                                StackPanel.orientation Orientation.Horizontal
+                                StackPanel.children [
+                                    TextBlock.create [
+                                        TextBlock.text (file.Name)
+                                        ]
+                                    if not det.approved then
+                                        Button.create [
+                                            Button.content "Approve"
+                                            ]
                                     ]
                                 ]
-                            ]
+                        | _ -> ()
                         ]
                 ]
         ]

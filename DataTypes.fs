@@ -45,7 +45,8 @@ module UI =
     type OrdersDetail = {
         index: int
         approved: bool
-        name: string option // defaults to file path but can be renamed to describe the kind of orders, e.g. kamikaze vs. cautious. Will show up in name of generated games.
+        nation: string
+        name: string option // defaults to nation but can be renamed to describe the kind of orders, e.g. kamikaze vs. cautious. Will show up in name of generated games.
         }
     type FileDetail =
         | Trn
@@ -56,7 +57,7 @@ module UI =
         detail: FileDetail
         }
         with
-        member this.Name = (match this.detail with Orders detail -> detail.name |> Option.defaultValue (Path.GetFileNameWithoutExtension this.frozenPath + detail.index.ToString()) | Trn | Other -> Path.GetFileName this.frozenPath) // defaults to file path but can be renamed to describe the kind of orders, e.g. kamikaze vs. cautious. Will show up in name of generated games.
+        member this.Name = (match this.detail with Orders detail -> detail.name |> Option.defaultValue (detail.nation + detail.index.ToString()) | Trn | Other -> Path.GetFileName this.frozenPath) // defaults to file path but can be renamed to describe the kind of orders, e.g. kamikaze vs. cautious. Will show up in name of generated games.
         member this.Nation = match this.detail with Orders _ | Trn -> Some (Path.GetFileNameWithoutExtension this.frozenPath) | Other -> None
     type Game = {
         name: string
