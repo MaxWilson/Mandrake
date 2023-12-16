@@ -40,6 +40,7 @@ type MainWindow() as this =
         |> Program.withHost this
         |> Program.withSubscription (fun model ->
             Sub.batch [
+                [[], fun dispatch -> fs.register (DataTypes.UI.FileSystemMsg >> dispatch); fs.initialize(); { new System.IDisposable with member this.Dispose() = ()}]
                 // match model.acceptance.gameTurns, model.fileSettings with
                 // | Some turns, { exePath = Some exePath; dataDirectory = Some dataDirectory } ->
                 //     // we want to resubscribe if either the settings change or a new game gets created

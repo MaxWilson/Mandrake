@@ -10,12 +10,12 @@ type FileSystemMsg =
 
 type Path = System.IO.Path
 
-type FileSystem(getTempFilePath, copy: FullPath * FullPath -> unit, copyBack: string * FullPath -> unit, initialize) as this =
+type FileSystem(getTempFilePath, copy: FullPath * FullPath -> unit, copyBack: string * FullPath -> unit, initialize: _ -> unit) =
     let mutable excludedDirectories = []
     let mutable listeners = []
     let dispatch msg = for dispatch in listeners do dispatch msg
 
-    do initialize this
+    member this.initialize() = initialize this
 
     member this.exclude dir = excludedDirectories <- dir :: excludedDirectories
     member this.exclusions = excludedDirectories
