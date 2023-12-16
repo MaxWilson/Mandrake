@@ -35,7 +35,7 @@ let update (fs: FileSystem, ex:ExecutionEngine) msg model =
             | ".trn" -> Trn
             | ".2h" ->
                 let nation = Path.GetFileNameWithoutExtension path
-                let priorIx = game.files |> List.collect (function { detail = Orders { index = ix; nation = nation } } when nation = nation -> [ ix ] | _ -> []) |> List.append [0] |> List.max
+                let priorIx = game.files |> List.collect (function { detail = Orders { index = ix; nation = nation' } } when nation' = nation -> [ ix ] | _ -> []) |> List.append [0] |> List.max
                 Orders { name = None; approved = false; index = priorIx + 1; nation = nation }
             | _ -> Other
         let file = { frozenPath = path; detail = detail }
@@ -104,9 +104,10 @@ let view (model: Model) dispatch : IView =
                                         TextBlock.text (file.Name)
                                         ]
                                     if not det.approved then
+                                        let name = file.Name
                                         Button.create [
-                                            Button.content "Approve"
-                                            Button.onClick(fun _ -> dispatch (Approve(game.name, file.Name)))
+                                            Button.content $"Approve {name}"
+                                            Button.onClick(fun _ -> printfn $"Approve {name}"; dispatch (Approve(game.name, name)))
                                             ]
                                     ]
                                 ]

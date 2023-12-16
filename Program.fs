@@ -50,7 +50,7 @@ type MainWindow() as this =
                 ]
             )
 #if DEBUG
-        |> Program.withConsoleTrace
+        // |> Program.withConsoleTrace
 #endif
         |> Program.run
 
