@@ -1,5 +1,5 @@
 [<AutoOpen>]
-module UI.Common
+module UICommon
 open System
 open Avalonia.Controls
 open Avalonia.FuncUI.DSL
@@ -16,3 +16,7 @@ type View =
     static member TextBlock (txt) = TextBlock.create [TextBlock.text txt]
     static member Button (txt: string, onClick) = Button.create [Button.content txt; Button.onClick onClick]
     static member ScrollViewer (content: IView) = ScrollViewer.create [ScrollViewer.content content]
+
+type Button with
+    static member onClick logic =
+        Button.onClick(logic, SubPatchOptions.Always) // We always want it to use the logic we specify, instead of keeping whatever logic it had before. See https://github.com/fsprojects/Avalonia.FuncUI/issues/379
