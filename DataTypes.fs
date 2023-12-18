@@ -6,7 +6,7 @@ type DirectoryPath = string
 
 type FileSystemMsg =
 | NewGame of gameName:string
-| NewFile of gameName: string * FullPath
+| NewFile of gameName: string * FullPath * nation:string
 
 type Path = System.IO.Path
 
@@ -23,13 +23,14 @@ type FileSystem(getTempFilePath, copy: FullPath * FullPath -> unit, copyBack: st
 
     member this.New(path: FullPath) =
         let gameName = (System.IO.Directory.GetParent path).Name
+        let nation = Path.GetFileNameWithoutExtension path
         let fileDest, isNewGame = getTempFilePath gameName (Path.GetFileName path)
 
         copy (path, fileDest)
         if isNewGame then
             dispatch (NewGame(gameName))
 
-        dispatch (NewFile(gameName, fileDest))
+        dispatch (NewFile(gameName, fileDest, nation))
 
     member this.Updated(path: FullPath) =
         let gameName = (System.IO.Directory.GetParent path).Name

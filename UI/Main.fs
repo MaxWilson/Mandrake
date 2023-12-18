@@ -25,16 +25,16 @@ let justUnlocked (gameName: string, ordersName, game: Game) =
     newCombinations
 
 let update (fs: FileSystem, ex:ExecutionEngine) msg model =
+    printfn "update: %A" msg
     match msg with
     | FileSystemMsg(NewGame(game)) ->
         { model with games = Map.change game (Option.orElse (Some { name = game; files = []; children = [] })) model.games }, Cmd.Empty
-    | FileSystemMsg(NewFile(game, path)) ->
+    | FileSystemMsg(NewFile(game, path, nation)) ->
         let game = model.games |> Map.tryFind game |> Option.defaultValue { name = game; files = []; children = [] }
         let detail =
             match Path.GetExtension path with
             | ".trn" -> Trn
             | ".2h" ->
-                let nation = Path.GetFileNameWithoutExtension path
                 let priorIx = game.files |> List.collect (function { detail = Orders { index = ix; nation = nation' } } when nation' = nation -> [ ix ] | _ -> []) |> List.append [0] |> List.max
                 Orders { name = None; approved = false; index = priorIx + 1; nation = nation }
             | _ -> Other
@@ -106,13 +106,22 @@ let view (model: Model) dispatch : IView =
                                     if not det.approved then
                                         let name = file.Name
                                         Button.create [
-                                            Button.content $"Approve {name}"
                                             Button.onClick(fun _ -> printfn $"Approve {name}"; dispatch (Approve(game.name, name)))
                                             ]
                                     ]
                                 ]
                         | _ -> ()
-                        ]
+                    if game.children.Length > 0 then
+                        TextBlock.create [
+                            TextBlock.classes ["subtitle"]
+                            TextBlock.text (game.name)
+                            // TextBox.onTextChanged (fun txt -> exePath.Set (Some txt); exePathValid.Set ((String.IsNullOrWhiteSpace txt |> not) && File.Exists txt))
+                            ]
+                    for permutation in game.children do
+                        TextBlock.create [
+                            TextBlock.text $"{permutation.status}: {permutation.name}"
+                            ]
+                    ]
                 ]
         ]
     // match model.fileSettings with

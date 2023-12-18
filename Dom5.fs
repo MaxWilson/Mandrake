@@ -13,15 +13,25 @@ let ignoreThisFile (file: FullPath) =
 
 let getTempDirPath : _ -> _ -> FullPath * bool=
     let mutable gameDests: Map<string, DirectoryPath> = Map.empty
+    let uniquePath dest fileName =
+        let path = Path.Combine(dest, fileName)
+        if File.Exists path then
+            let rec recur ix =
+                let fileName = Path.GetFileNameWithoutExtension fileName + ix.ToString() + Path.GetExtension fileName
+                let path = Path.Combine(dest, fileName)
+                if File.Exists path then recur (ix + 1)
+                else path
+            recur 2
+        else path
     fun gameName fileName ->
         match gameDests |> Map.tryFind gameName with
-        | Some dest -> Path.Combine(dest, fileName), false
+        | Some dest -> uniquePath dest fileName, false
         | None ->
             let dest = Path.Combine (Path.GetTempPath(), gameName)
             let dir = System.IO.Directory.CreateDirectory dest
             if not dir.Exists then shouldntHappen "Couldn't create temp directory"
             gameDests <- Map.add gameName dest gameDests
-            Path.Combine(dest, fileName), true
+            uniquePath dest fileName, true
 
 let setupNewWatcher (savedGamesDirectory: DirectoryPath) (onNew, onUpdated) =
     let mutable files =
@@ -33,6 +43,8 @@ let setupNewWatcher (savedGamesDirectory: DirectoryPath) (onNew, onUpdated) =
     let watcher = new FileSystemWatcher (System.IO.Path.GetFullPath savedGamesDirectory)
     watcher.Changed.Add (fun args -> onUpdated args.FullPath)
     watcher.Created.Add (fun args -> onNew args.FullPath)
+    watcher.IncludeSubdirectories <- true
+    watcher.EnableRaisingEvents <- true
     watcher
 
 // let setup (gameTurns: GameTurn list option) (settings: Settings.FileSettings) : GameTurn list Task = backgroundTask {

@@ -18,14 +18,31 @@ type MainWindow() as this =
     inherit HostWindow()
     do
         base.Title <- "Mandrake for Dom5"
+        let robustCopy src dest =
+            // minimally robust currently (just retry once a second later) but we can improve if needed
+            let rec attempt (nextDelay: int) =
+                printfn $"Robust copy: {src} -> {dest}"
+                task {
+                    try
+                        System.IO.File.Copy(src, dest, true)
+                        printfn $"Finished robust copy: {src} -> {dest}"
+                    with
+                    | err when nextDelay < 2000 ->
+                        printfn $"Error! {err}"
+                        do! Task.Delay nextDelay
+                        return! attempt (nextDelay * 3)
+                    }
+            attempt 100
+            |> fun t -> t.Wait()
         let copyIfNewer (src, dest) =
-            let srcInfo = System.IO.FileInfo(src)
-            let destInfo = System.IO.FileInfo(dest)
-            if srcInfo.LastWriteTime > destInfo.LastWriteTime then
-                System.IO.File.Copy(src, dest, true)
+            if System.IO.File.Exists src then
+                let srcInfo = System.IO.FileInfo(src)
+                let destInfo = System.IO.FileInfo(dest)
+                if srcInfo.LastWriteTime > destInfo.LastWriteTime then
+                    robustCopy src dest
         let copyBack (src, gameName) =
             let dest = Path.Combine(@"C:\Users\wilso\AppData\Roaming\Dominions5\savedGames", gameName)
-            System.IO.File.Copy(src, dest, true)
+            robustCopy src dest
         let fs = FileSystem(
                         Dom5.getTempDirPath,
                         copyIfNewer,
@@ -40,17 +57,15 @@ type MainWindow() as this =
         |> Program.withHost this
         |> Program.withSubscription (fun model ->
             Sub.batch [
-                [[], fun dispatch -> fs.register (DataTypes.UI.FileSystemMsg >> dispatch); fs.initialize(); { new System.IDisposable with member this.Dispose() = ()}]
-                // match model.acceptance.gameTurns, model.fileSettings with
-                // | Some turns, { exePath = Some exePath; dataDirectory = Some dataDirectory } ->
-                //     // we want to resubscribe if either the settings change or a new game gets created
-                //     let prefix = turns |> List.map (fun gt -> gt.name) |> List.append [dataDirectory; exePath] |> String.concat ";"
-                //     Sub.map prefix Acceptance (UI.AcceptanceQueue.subscribe turns model.fileSettings)
-                // | _ -> ()
+                [[], fun dispatch ->
+                    fs.register(fun msg -> printfn $"dispatching {msg} to UI thread"; Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(System.Func<_>(fun () -> async { printfn $"dispatching {msg} within UI thread"; DataTypes.UI.FileSystemMsg msg |> dispatch })) |> ignore)
+                    fs.initialize();
+                    { new System.IDisposable with member this.Dispose() = ()}
+                    ]
                 ]
             )
 #if DEBUG
-        // |> Program.withConsoleTrace
+        |> Program.withConsoleTrace
 #endif
         |> Program.run
 
