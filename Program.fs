@@ -25,7 +25,6 @@ type MainWindow() as this =
                 task {
                     try
                         System.IO.File.Copy(src, dest, true)
-                        printfn $"Finished robust copy: {src} -> {dest}"
                     with
                     | err when nextDelay < 2000 ->
                         printfn $"Error! {err}"
