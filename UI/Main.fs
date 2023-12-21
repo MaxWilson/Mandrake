@@ -20,6 +20,9 @@ let justUnlocked (gameName: string, ordersName, game: Game) =
             let rec permutationsOf (accumulatedOrders: GameFile list) = function
                 | [] -> [accumulatedOrders]
                 | nation :: rest ->
+                    if approvedOrders.ContainsKey nation |> not then
+                        shouldntHappen $"Hey, '{nation}' has no approved orders, even though {trns} and {approvedOrders} have the same length."
+
                     approvedOrders[nation] |> List.collect (fun approvedOrder -> permutationsOf (approvedOrder :: accumulatedOrders) rest)
             permutationsOf [justApproved] otherNations
     newCombinations
