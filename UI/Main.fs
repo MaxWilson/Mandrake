@@ -72,7 +72,8 @@ let update (fs: FileSystem, ex:ExecutionEngine) msg model =
                         for file in orders do
                             fs.CopyBackToGame(newGameName, file.frozenPath)
                         ex.Execute(newGameName)
-                        dispatch (UpdatePermutationStatus(gameName, newGameName, Complete))
+                        Avalonia.Threading.Dispatcher.UIThread.Post(fun () ->
+                            dispatch (UpdatePermutationStatus(gameName, newGameName, Complete)))
                 } |> ignore
                 )
     | UpdatePermutationStatus(gameName, permutationName, status) ->
