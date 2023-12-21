@@ -174,9 +174,31 @@ module Task =
     let waitAll (tasks: _ Task seq) = Task.WhenAll(tasks |> Array.ofSeq |> Array.map (fun t -> t :> Task))
     let waitFirst (tasks: _ Task seq) = Task.WaitAny(tasks |> Array.ofSeq |> Array.map (fun t -> t :> Task))
 
+let inline log v = System.Console.WriteLine (box v)
+let inline logM (msg:string) v = log msg; log v
 let inline trace v =
 #if DEBUG
     printfn "Trace: %A" v
+    log v
 #endif
     v
+let inline traceM (txt:string) v =
+#if DEBUG
+    System.Console.Write $"{txt}: "
+    System.Console.WriteLine (box v)
+    v
+#endif
+
+// log for dev purposes, for when exceptions aren't quite enough context
+let inline devLog v =
+#if DEBUG
+    System.Console.WriteLine (box v)
+#endif
+    ()
+let inline devLogM (txt:string) v =
+#if DEBUG
+    System.Console.Write $"{txt}: "
+    System.Console.WriteLine (box v)
+#endif
+    ()
 
