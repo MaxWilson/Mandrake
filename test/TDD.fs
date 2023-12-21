@@ -144,9 +144,7 @@ type SmallPrimeGen() =
 //Gen.elements [2;3;5;7] |> Gen.map SmallPrime |> Arb.fromGen
 [<Tests>]
 let tests =
-    testLabel "Mandrake"
-    <| testList
-        "TDD"
+    testList "TDD"
         [ testAsync "AutoApprove message should toggle on mirror" {
               let mockHardInterface =
                   MailboxProcessor.Start(fun this ->
@@ -219,4 +217,5 @@ let tests =
                 generated games if settings.autoCleanupGeneratedGames is set" {
                     ()
                 }
-                test "Otherwise, wait for Discard command on generated game and then delete" { () } ] ]
+                test "Otherwise, wait for Discard command on generated game and then delete" { () } ]
+        ]
