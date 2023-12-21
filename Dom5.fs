@@ -11,27 +11,63 @@ let ignoreThisFile (file: FullPath) =
     let getDirectoryName (path: FullPath) = path |> Path.GetDirectoryName |> Path.GetFileName
     getDirectoryName file = "newlords"
 
+module File =
+    let equivalent src dest =
+        let srcInfo = FileInfo(src)
+        let destInfo = FileInfo(dest)
+        srcInfo.LastWriteTime = destInfo.LastWriteTime && srcInfo.Length = destInfo.Length
+
 let getTempDirPath : _ -> _ -> FullPath * bool=
     let mutable gameDests: Map<string, DirectoryPath> = Map.empty
-    let uniquePath dest fileName =
+    let uniquePath dest (filePath: FullPath) =
+        let lastInfo = FileInfo(filePath)
+        let fileName = Path.GetFileName filePath
         let path = Path.Combine(dest, fileName)
-        if File.Exists path then
-            let rec recur ix =
-                let fileName = Path.GetFileNameWithoutExtension fileName + ix.ToString() + Path.GetExtension fileName
-                let path = Path.Combine(dest, fileName)
-                if File.Exists path then recur (ix + 1)
-                else path
-            recur 2
-        else path
-    fun gameName fileName ->
+        let rec recur ix =
+            let fileName = Path.GetFileNameWithoutExtension fileName + (if ix = 1 then "" else ix.ToString()) + Path.GetExtension fileName
+            let path = Path.Combine(dest, fileName)
+            if not (File.Exists path) || (let info = FileInfo(path) in info.LastWriteTime = lastInfo.LastWriteTime && info.Length = lastInfo.Length) then
+                path // if the the Length and last write time match we'll assume the files are equivalent and the path is good, and if there's no file at all then that's also good
+            else
+                recur (ix + 1)
+        recur 1
+    fun gameName (filePath:FullPath) ->
         match gameDests |> Map.tryFind gameName with
-        | Some dest -> uniquePath dest fileName, false
+        | Some dest -> uniquePath dest filePath, false
         | None ->
-            let dest = Path.Combine (Path.GetTempPath(), gameName)
+            let dest = Path.Combine (Path.GetTempPath(), "Mandrake", gameName)
             let dir = System.IO.Directory.CreateDirectory dest
             if not dir.Exists then shouldntHappen "Couldn't create temp directory"
             gameDests <- Map.add gameName dest gameDests
-            uniquePath dest fileName, true
+            uniquePath dest filePath, true
+
+let robustCopy src dest =
+    // minimally robust currently (just retry once a second later) but we can improve if needed
+    let rec attempt (nextDelay: int) =
+        task {
+            try
+                System.IO.File.Copy(src, dest, true)
+            with
+            | err when nextDelay < 2000 ->
+                do! Task.Delay nextDelay
+                return! attempt (nextDelay * 3)
+            }
+    if File.equivalent src dest then
+        // nothing to do
+        ()
+    else
+        attempt 100
+        |> fun t -> t.Wait()
+let copyIfNewer (src, dest) =
+    if System.IO.File.Exists src then
+        let srcInfo = System.IO.FileInfo(src)
+        let destInfo = System.IO.FileInfo(dest)
+        if srcInfo.LastWriteTime > destInfo.LastWriteTime then
+            robustCopy src dest
+let copyBack (src, gameName) =
+    let dest = Path.Combine(@"C:\Users\wilso\AppData\Roaming\Dominions5\savedGames", gameName)
+    robustCopy src dest
+
 
 let setupNewWatcher (savedGamesDirectory: DirectoryPath) (onNew, onUpdated) =
     let mutable files =

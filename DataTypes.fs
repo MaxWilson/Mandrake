@@ -24,7 +24,7 @@ type FileSystem(getTempFilePath, copy: FullPath * FullPath -> unit, copyBack: st
     member this.New(path: FullPath) =
         let gameName = (System.IO.Directory.GetParent path).Name
         let nation = Path.GetFileNameWithoutExtension path
-        let fileDest, isNewGame = getTempFilePath gameName (Path.GetFileName path)
+        let fileDest, isNewGame = getTempFilePath gameName path
 
         copy (path, fileDest)
         if isNewGame then
@@ -59,7 +59,7 @@ module UI =
         }
         with
         member this.Name = (match this.detail with Orders detail -> detail.name |> Option.defaultValue (detail.nation + detail.index.ToString()) | Trn | Other -> Path.GetFileName this.frozenPath) // defaults to file path but can be renamed to describe the kind of orders, e.g. kamikaze vs. cautious. Will show up in name of generated games.
-        member this.Nation = match this.detail with Orders _ | Trn -> Some (Path.GetFileNameWithoutExtension this.frozenPath) | Other -> None
+        member this.Nation = match this.detail with Orders n -> Some n.nation | Trn -> Some (Path.GetFileNameWithoutExtension this.frozenPath) | Other -> None
     type Status = NotStarted | InProgress | Complete
     type Permutation = {
         name: string

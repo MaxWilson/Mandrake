@@ -108,7 +108,7 @@ let view (model: Model) dispatch : IView =
                                     if not det.approved then
                                         let name = file.Name
                                         Button.create [
-                                            Button.content $"Approve {name}"
+                                            Button.content $"Approve {name} at {file.frozenPath}"
                                             Button.onClick(fun _ -> dispatch (Approve(game.name, name)))
                                             ]
                                     ]

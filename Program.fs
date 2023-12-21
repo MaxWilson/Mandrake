@@ -14,34 +14,13 @@ open Avalonia.FuncUI.Elmish
 open System.Threading.Tasks
 
 open UI.Main
+open Dom5
 type MainWindow() as this =
     inherit HostWindow()
     do
         base.Title <- "Mandrake for Dom5"
-        let robustCopy src dest =
-            // minimally robust currently (just retry once a second later) but we can improve if needed
-            let rec attempt (nextDelay: int) =
-                task {
-                    try
-                        System.IO.File.Copy(src, dest, true)
-                    with
-                    | err when nextDelay < 2000 ->
-                        do! Task.Delay nextDelay
-                        return! attempt (nextDelay * 3)
-                    }
-            attempt 100
-            |> fun t -> t.Wait()
-        let copyIfNewer (src, dest) =
-            if System.IO.File.Exists src then
-                let srcInfo = System.IO.FileInfo(src)
-                let destInfo = System.IO.FileInfo(dest)
-                if srcInfo.LastWriteTime > destInfo.LastWriteTime then
-                    robustCopy src dest
-        let copyBack (src, gameName) =
-            let dest = Path.Combine(@"C:\Users\wilso\AppData\Roaming\Dominions5\savedGames", gameName)
-            robustCopy src dest
         let fs = FileSystem(
-                        Dom5.getTempDirPath,
+                        getTempDirPath,
                         copyIfNewer,
                         copyBack,
                         fun this ->

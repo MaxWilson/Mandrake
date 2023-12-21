@@ -60,7 +60,7 @@ let tests =
                     fakeTempDir <- fakeTempDir |> Map.addMulti dest path
                 let copyBack (gameName, src: FullPath) = fakeGameDir <- fakeGameDir |> Map.addMulti gameName (Path.GetFileName src)
                 FileSystem(
-                    (fun gameName path -> Path.Combine(gameName, path), true), // always pretend to be new, and create a path name that looks like a plausible path but can also be easily parsed by fakeCopy
+                    (fun gameName path -> Path.Combine(gameName, Path.GetFileName path), true), // always pretend to be new, and create a path name that looks like a plausible path but can also be easily parsed by fakeCopy
                     fakeCopy,
                     copyBack,
                     fun this ->
