@@ -25,7 +25,6 @@ let justUnlocked (gameName: string, ordersName, game: Game) =
     newCombinations
 
 let update (fs: FileSystem, ex:ExecutionEngine) msg model =
-    printfn "update: %A" msg
     match msg with
     | FileSystemMsg(NewGame(game)) ->
         { model with games = Map.change game (Option.orElse (Some { name = game; files = []; children = [] })) model.games }, Cmd.Empty
@@ -106,7 +105,8 @@ let view (model: Model) dispatch : IView =
                                     if not det.approved then
                                         let name = file.Name
                                         Button.create [
-                                            Button.onClick(fun _ -> printfn $"Approve {name}"; dispatch (Approve(game.name, name)))
+                                            Button.content $"Approve {name}"
+                                            Button.onClick(fun _ -> dispatch (Approve(game.name, name)))
                                             ]
                                     ]
                                 ]

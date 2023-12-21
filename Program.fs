@@ -21,13 +21,11 @@ type MainWindow() as this =
         let robustCopy src dest =
             // minimally robust currently (just retry once a second later) but we can improve if needed
             let rec attempt (nextDelay: int) =
-                printfn $"Robust copy: {src} -> {dest}"
                 task {
                     try
                         System.IO.File.Copy(src, dest, true)
                     with
                     | err when nextDelay < 2000 ->
-                        printfn $"Error! {err}"
                         do! Task.Delay nextDelay
                         return! attempt (nextDelay * 3)
                     }
@@ -57,7 +55,7 @@ type MainWindow() as this =
         |> Program.withSubscription (fun model ->
             Sub.batch [
                 [[], fun dispatch ->
-                    fs.register(fun msg -> printfn $"dispatching {msg} to UI thread"; Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(System.Func<_>(fun () -> async { printfn $"dispatching {msg} within UI thread"; DataTypes.UI.FileSystemMsg msg |> dispatch })) |> ignore)
+                    fs.register(fun msg -> Avalonia.Threading.Dispatcher.UIThread.Post(fun () -> DataTypes.UI.FileSystemMsg msg |> dispatch))
                     fs.initialize();
                     { new System.IDisposable with member this.Dispose() = ()}
                     ]
