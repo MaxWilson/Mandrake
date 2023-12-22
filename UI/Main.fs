@@ -62,19 +62,24 @@ let update (fs: FileSystem, ex:ExecutionEngine) msg model =
                     for orders in queue do
                         // asynchronously: make a new, excluded game directory, copy all of the 2h files + ftherlnd into it, and run Dom5.exe on it, while keeping the UI informed of progress
                         let newGameName = getPermutationName orders
-                        Avalonia.Threading.Dispatcher.UIThread.Post(fun () ->
-                            dispatch (UpdatePermutationStatus(gameName, newGameName, InProgress)))
-                        fs.exclude newGameName
-                        // copy back ftherlnd
-                        for file in game.files do
-                            match file.detail with
-                            | Other -> fs.CopyBackToGame(newGameName, file.frozenPath)
-                            | Trn | Orders _ -> ()
-                        for file in orders do
-                            fs.CopyBackToGame(newGameName, file.frozenPath)
-                        ex.Execute(newGameName)
-                        Avalonia.Threading.Dispatcher.UIThread.Post(fun () ->
-                            dispatch (UpdatePermutationStatus(gameName, newGameName, Complete)))
+                        let setStatus status =
+                            Avalonia.Threading.Dispatcher.UIThread.Post(fun () ->
+                                dispatch (UpdatePermutationStatus(gameName, newGameName, status)))
+                        try
+                            setStatus InProgress
+                            fs.exclude newGameName
+                            // copy back ftherlnd and .trn
+                            for file in game.files do
+                                match file.detail with
+                                | Other | Trn -> fs.CopyBackToGame(newGameName, file.frozenPath)
+                                | Orders _ -> ()
+                            for file in orders do
+                                fs.CopyBackToGame(newGameName, file.frozenPath)
+                            do! ex.Execute(newGameName, Dom5.hostDom5)
+                            setStatus Complete
+                        with exn ->
+                            log $"Error processing {newGameName}: {exn}"
+                            setStatus (Error $"Error processing {newGameName}: {exn}")
                 } |> ignore
                 )
     | UpdatePermutationStatus(gameName, permutationName, status) ->

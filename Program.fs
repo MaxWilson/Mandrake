@@ -41,7 +41,7 @@ type MainWindow() as this =
                 ]
             )
 #if DEBUG
-        |> Program.withConsoleTrace
+        // |> Program.withConsoleTrace // Console trace becomes very hard to read actually
 #endif
         |> Program.run
 

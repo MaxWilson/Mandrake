@@ -40,7 +40,8 @@ type FileSystem(getTempFilePath, copy: FullPath * FullPath -> unit, copyBack: st
     member this.CopyBackToGame(gameName, src: FullPath) = copyBack(gameName, src)
 
 type ExecutionEngine(fs: FileSystem) =
-    member this.Execute (gameName: string) = notImpl @"run C:\usr\bin\steam\steamapps\common\Dominions5\win64\dominions5.exe  -c -T -g <name>"
+    member this.Execute (gameName: string, hostCmd) =
+        hostCmd gameName
 
 module UI =
     type OrdersDetail = {
@@ -60,7 +61,7 @@ module UI =
         with
         member this.Name = (match this.detail with Orders detail -> detail.name |> Option.defaultValue (detail.nation + detail.index.ToString()) | Trn | Other -> Path.GetFileName this.frozenPath) // defaults to file path but can be renamed to describe the kind of orders, e.g. kamikaze vs. cautious. Will show up in name of generated games.
         member this.Nation = match this.detail with Orders n -> Some n.nation | Trn -> Some (Path.GetFileNameWithoutExtension this.frozenPath) | Other -> None
-    type Status = NotStarted | InProgress | Complete
+    type Status = NotStarted | InProgress | Complete | Error of msg:string
     type Permutation = {
         name: string
         status: Status

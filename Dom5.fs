@@ -80,11 +80,37 @@ let setupNewWatcher (savedGamesDirectory: DirectoryPath) (onNew, onUpdated) =
         |> Array.filter (not << ignoreThisFile)
     files |> Array.iter onNew
     let watcher = new FileSystemWatcher (System.IO.Path.GetFullPath savedGamesDirectory)
-    watcher.Changed.Add (fun args -> onUpdated args.FullPath)
-    watcher.Created.Add (fun args -> onNew args.FullPath)
+    watcher.Changed.Add (fun args -> devLogM "Changed" args; onUpdated args.FullPath)
+    watcher.Created.Add (fun args -> devLogM "Created" args; onNew args.FullPath)
     watcher.IncludeSubdirectories <- true
     watcher.EnableRaisingEvents <- true
     watcher
+
+open System
+open System.Diagnostics
+/// run C:\usr\bin\steam\steamapps\common\Dominions5\win64\dominions5.exe  -T -g <name> --host, see https://www.illwinter.com/dom5/techmanual.html#network-options for details
+let hostDom5 (gameName:string) = backgroundTask {
+    use proc = new Process()
+    log $"""About to execute C:\usr\bin\steam\steamapps\common\Dominions5\win64\dominions5.exe -T -g {gameName} --host"""
+    proc.StartInfo.FileName <- @"C:\usr\bin\steam\steamapps\common\Dominions5\win64\dominions5.exe"
+    proc.StartInfo.Arguments <- $"-T -g {gameName} --host"
+    proc.StartInfo.UseShellExecute <- false
+    proc.StartInfo.RedirectStandardOutput <- true
+    proc.StartInfo.RedirectStandardError <- true
+    proc.StartInfo.CreateNoWindow <- true
+    let isDone = TaskCompletionSource<bool>()
+    proc.OutputDataReceived.AddHandler(fun (sender:obj) (args: DataReceivedEventArgs) -> if args.Data = null then isDone.SetResult true else Console.WriteLine args.Data)
+    proc.ErrorDataReceived.AddHandler(fun (sender:obj) (args: DataReceivedEventArgs) -> if args.Data = null then isDone.SetResult false else Console.Error.WriteLine args.Data)
+    if not (proc.Start()) then
+        Console.Error.WriteLine "Couldn't start Dom5.exe--is the path correct?"
+    else
+        log $"Started hosting {gameName}"
+        let! success = proc.WaitForExitAsync() // wait for Dom5 to finish
+        if proc.ExitCode <> 0 then
+            log $"Done hosting {gameName}"
+        else
+            Console.Error.WriteLine $"Dom5.exe exited with non-zero exit code {proc.ExitCode}. Something must be wrong."
+    }
 
 // let setup (gameTurns: GameTurn list option) (settings: Settings.FileSettings) : GameTurn list Task = backgroundTask {
     // // scan C:\Users\wilso\AppData\Roaming\Dominions5\ or whatever for saved games
