@@ -44,7 +44,7 @@ let getTempDirPath : _ -> _ -> FullPath * bool=
 let robustCopy (src:FullPath) (dest:FullPath) =
     // minimally robust currently (just retry once a second later) but we can improve if needed
     let rec attempt (nextDelay: int) =
-        task {
+        backgroundTask {
             try
                 if Directory.Exists (Path.GetDirectoryName dest) |> not then
                     Directory.CreateDirectory (Path.GetDirectoryName dest) |> ignore
@@ -134,7 +134,7 @@ let setupNewWatcher (savedGamesDirectory: DirectoryPath) (onNew, onUpdated) =
     //     ]
     // }
 
-let fakeHost gameName feedback = task {
+let fakeHost gameName feedback = backgroundTask {
     let mutable ticks = 0
     // pretend to run C:\usr\bin\steam\steamapps\common\Dominions5\win64\dominions5.exe  -c -T -g <name>
     let fakeHost = task {

@@ -58,7 +58,7 @@ let update (fs: FileSystem, ex:ExecutionEngine) msg model =
         let game = { game with children = queue |> List.map (fun orders -> { name = getPermutationName orders; status = NotStarted }) |> List.append game.children }
         { model with games = Map.add gameName game model.games },
             Cmd.ofEffect (fun dispatch ->
-                task {
+                backgroundTask {
                     for orders in queue do
                         // asynchronously: make a new, excluded game directory, copy all of the 2h files + ftherlnd into it, and run Dom5.exe on it, while keeping the UI informed of progress
                         let newGameName = getPermutationName orders
