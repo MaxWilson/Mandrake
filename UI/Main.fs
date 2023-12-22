@@ -62,7 +62,8 @@ let update (fs: FileSystem, ex:ExecutionEngine) msg model =
                     for orders in queue do
                         // asynchronously: make a new, excluded game directory, copy all of the 2h files + ftherlnd into it, and run Dom5.exe on it, while keeping the UI informed of progress
                         let newGameName = getPermutationName orders
-                        dispatch (UpdatePermutationStatus(gameName, newGameName, InProgress))
+                        Avalonia.Threading.Dispatcher.UIThread.Post(fun () ->
+                            dispatch (UpdatePermutationStatus(gameName, newGameName, InProgress)))
                         fs.exclude newGameName
                         // copy back ftherlnd
                         for file in game.files do

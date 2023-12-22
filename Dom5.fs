@@ -41,14 +41,17 @@ let getTempDirPath : _ -> _ -> FullPath * bool=
             gameDests <- Map.add gameName dest gameDests
             uniquePath dest filePath, true
 
-let robustCopy src dest =
+let robustCopy (src:FullPath) (dest:FullPath) =
     // minimally robust currently (just retry once a second later) but we can improve if needed
     let rec attempt (nextDelay: int) =
         task {
             try
+                if Directory.Exists (Path.GetDirectoryName dest) |> not then
+                    Directory.CreateDirectory (Path.GetDirectoryName dest) |> ignore
                 System.IO.File.Copy(src, dest, true)
             with
             | err when nextDelay < 2000 ->
+                System.Console.Error.WriteLine $"Error copying {src} to {dest}: {err}"
                 do! Task.Delay nextDelay
                 return! attempt (nextDelay * 3)
             }
@@ -64,8 +67,8 @@ let copyIfNewer (src, dest) =
         let destInfo = System.IO.FileInfo(dest)
         if srcInfo.LastWriteTime > destInfo.LastWriteTime then
             robustCopy src dest
-let copyBack (src, gameName) =
-    let dest = Path.Combine(@"C:\Users\wilso\AppData\Roaming\Dominions5\savedGames", gameName)
+let copyBack (gameName: string, src: FullPath) =
+    let dest = Path.Combine(@"C:\Users\wilso\AppData\Roaming\Dominions5\savedGames", gameName, Path.GetFileName src)
     robustCopy src dest
 
 
