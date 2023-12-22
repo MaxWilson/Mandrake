@@ -71,7 +71,7 @@ let copyBack (gameName: string, src: FullPath) =
     let dest = Path.Combine(@"C:\Users\wilso\AppData\Roaming\Dominions5\savedGames", gameName, Path.GetFileName src)
     robustCopy src dest
 
-
+let mutable watcherHandle = None
 let setupNewWatcher (savedGamesDirectory: DirectoryPath) (onNew, onUpdated) =
     let mutable files =
         Directory.GetFiles(savedGamesDirectory, "ftherlnd", System.IO.SearchOption.AllDirectories)
@@ -84,7 +84,7 @@ let setupNewWatcher (savedGamesDirectory: DirectoryPath) (onNew, onUpdated) =
     watcher.Created.Add (fun args -> devLogM "Created" args; onNew args.FullPath)
     watcher.IncludeSubdirectories <- true
     watcher.EnableRaisingEvents <- true
-    watcher
+    watcherHandle <- Some watcher // keep a reference to the watcher so it doesn't get garbage collected
 
 open System
 open System.Diagnostics
