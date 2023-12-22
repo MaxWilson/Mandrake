@@ -67,8 +67,8 @@ let copyIfNewer (src, dest) =
         let destInfo = System.IO.FileInfo(dest)
         if srcInfo.LastWriteTime > destInfo.LastWriteTime then
             robustCopy src dest
-let copyBack (gameName: string, src: FullPath) =
-    let dest = Path.Combine(@"C:\Users\wilso\AppData\Roaming\Dominions5\savedGames", gameName, Path.GetFileName src)
+let copyBack (gameName: string, src: FullPath, destfileName: string) =
+    let dest = Path.Combine(@"C:\Users\wilso\AppData\Roaming\Dominions5\savedGames", gameName, destfileName)
     robustCopy src dest
 
 let mutable watcherHandle = None

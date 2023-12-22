@@ -6,11 +6,11 @@ type DirectoryPath = string
 
 type FileSystemMsg =
 | NewGame of gameName:string
-| NewFile of gameName: string * FullPath * nation:string
+| NewFile of gameName: string * FullPath * nation:string * fileName: string
 
 type Path = System.IO.Path
 
-type FileSystem(getTempFilePath, copy: FullPath * FullPath -> unit, copyBack: string * FullPath -> unit, initialize: _ -> unit) =
+type FileSystem(getTempFilePath, copy: FullPath * FullPath -> unit, copyBack: string * FullPath * string -> unit, initialize: _ -> unit) =
     let mutable excludedDirectories = []
     let mutable listeners = []
     let dispatch msg = for dispatch in listeners do dispatch msg
@@ -23,6 +23,7 @@ type FileSystem(getTempFilePath, copy: FullPath * FullPath -> unit, copyBack: st
 
     member this.New(path: FullPath) =
         if not (excludedDirectories |> List.contains (Path.GetFileName (Path.GetDirectoryName path))) then
+            let fileName = Path.GetFileName path
             let gameName = (System.IO.Directory.GetParent path).Name
             let nation = Path.GetFileNameWithoutExtension path
             let fileDest, isNewGame = getTempFilePath gameName path
@@ -31,7 +32,7 @@ type FileSystem(getTempFilePath, copy: FullPath * FullPath -> unit, copyBack: st
             if isNewGame then
                 dispatch (NewGame(gameName))
 
-            dispatch (NewFile(gameName, fileDest, nation))
+            dispatch (NewFile(gameName, fileDest, nation, fileName))
 
     member this.Updated(path: FullPath) =
         if not (excludedDirectories |> List.contains (Path.GetFileName (Path.GetDirectoryName path))) then
@@ -39,7 +40,7 @@ type FileSystem(getTempFilePath, copy: FullPath * FullPath -> unit, copyBack: st
             copy (path, getTempFilePath gameName (Path.GetFileName path) |> fst)
             // I can't think of any changes needed to model state at this time. Later on maybe we might want to unapprove changed files?
 
-    member this.CopyBackToGame(gameName, src: FullPath) = copyBack(gameName, src)
+    member this.CopyBackToGame(gameName, src: FullPath, destFileName: string) = copyBack(gameName, src, destFileName)
 
 type ExecutionEngine(fs: FileSystem) =
     member this.Execute (gameName: string, hostCmd) =
@@ -53,16 +54,17 @@ module UI =
         name: string option // defaults to nation but can be renamed to describe the kind of orders, e.g. kamikaze vs. cautious. Will show up in name of generated games.
         }
     type FileDetail =
-        | Trn
+        | Trn of nation: string
         | Orders of OrdersDetail
         | Other
     type GameFile = {
+        fileName: string
         frozenPath: FullPath // not subject to change directly by Dom5.exe because it's in a temp directory, hence "frozen"
         detail: FileDetail
         }
         with
-        member this.Name = (match this.detail with Orders detail -> detail.name |> Option.defaultValue (detail.nation + detail.index.ToString()) | Trn | Other -> Path.GetFileName this.frozenPath) // defaults to file path but can be renamed to describe the kind of orders, e.g. kamikaze vs. cautious. Will show up in name of generated games.
-        member this.Nation = match this.detail with Orders n -> Some n.nation | Trn -> Some (Path.GetFileNameWithoutExtension this.frozenPath) | Other -> None
+        member this.Name = (match this.detail with Orders detail -> detail.name |> Option.defaultValue (detail.nation + detail.index.ToString()) | Trn _ | Other -> this.fileName) // defaults to file path but can be renamed to describe the kind of orders, e.g. kamikaze vs. cautious. Will show up in name of generated games.
+        member this.Nation = match this.detail with Orders n -> Some n.nation | Trn nation -> Some nation | Other -> None
     type Status = NotStarted | InProgress | Complete | Error of msg:string
     type Permutation = {
         name: string

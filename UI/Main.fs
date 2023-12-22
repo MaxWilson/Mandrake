@@ -11,7 +11,7 @@ let init _ = { games = Map.empty }, Cmd.Empty
 
 let justUnlocked (gameName: string, ordersName, game: Game) =
     let justApproved = game.files |> List.find (function { detail = Orders { approved = true } } as file -> file.Name = ordersName | _ -> false)
-    let trns = game.files |> List.filter (function { detail = Trn } -> true | _ -> false) |> Map.ofListBy (_.Nation >> Option.get)
+    let trns = game.files |> List.filter (function { detail = Trn _ } -> true | _ -> false) |> Map.ofListBy (_.Nation >> Option.get)
     let approvedOrders = game.files |> List.filter (function { detail = Orders { approved = true } } -> true | _ -> false) |> Map.ofListBy (_.Nation >> Option.get)
     let newCombinations =
         if approvedOrders.Keys.Count <> trns.Keys.Count then [] // wait for more approvals
@@ -31,16 +31,16 @@ let update (fs: FileSystem, ex:ExecutionEngine) msg model =
     match msg with
     | FileSystemMsg(NewGame(game)) ->
         { model with games = Map.change game (Option.orElse (Some { name = game; files = []; children = [] })) model.games }, Cmd.Empty
-    | FileSystemMsg(NewFile(game, path, nation)) ->
+    | FileSystemMsg(NewFile(game, path, nation, fileName)) ->
         let game = model.games |> Map.tryFind game |> Option.defaultValue { name = game; files = []; children = [] }
         let detail =
             match Path.GetExtension path with
-            | ".trn" -> Trn
+            | ".trn" -> Trn nation
             | ".2h" ->
                 let priorIx = game.files |> List.collect (function { detail = Orders { index = ix; nation = nation' } } when nation' = nation -> [ ix ] | _ -> []) |> List.append [0] |> List.max
                 Orders { name = None; approved = false; index = priorIx + 1; nation = nation }
             | _ -> Other
-        let file = { frozenPath = path; detail = detail }
+        let file = { frozenPath = path; detail = detail; fileName = fileName }
         { model with games = Map.add game.name { game with files = file :: game.files } model.games }, Cmd.Empty
     | Approve(gameName, ordersName) ->
         let game = {
@@ -71,10 +71,10 @@ let update (fs: FileSystem, ex:ExecutionEngine) msg model =
                             // copy back ftherlnd and .trn
                             for file in game.files do
                                 match file.detail with
-                                | Other | Trn -> fs.CopyBackToGame(newGameName, file.frozenPath)
+                                | Other | Trn _ -> fs.CopyBackToGame(newGameName, file.frozenPath, file.fileName)
                                 | Orders _ -> ()
                             for file in orders do
-                                fs.CopyBackToGame(newGameName, file.frozenPath)
+                                fs.CopyBackToGame(newGameName, file.frozenPath, file.fileName)
                             do! ex.Execute(newGameName, Dom5.hostDom5)
                             setStatus Complete
                         with exn ->
@@ -129,7 +129,7 @@ let view (model: Model) dispatch : IView =
                             ]
                     for permutation in game.children do
                         TextBlock.create [
-                            TextBlock.text $"{permutation.status}: {permutation.name}"
+                            TextBlock.text $"{permutation.name}: {permutation.status}"
                             ]
                     ]
                 ]
