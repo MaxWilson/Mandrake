@@ -22,20 +22,22 @@ type FileSystem(getTempFilePath, copy: FullPath * FullPath -> unit, copyBack: st
     member this.register listener = listeners <- listener :: listeners
 
     member this.New(path: FullPath) =
-        let gameName = (System.IO.Directory.GetParent path).Name
-        let nation = Path.GetFileNameWithoutExtension path
-        let fileDest, isNewGame = getTempFilePath gameName path
+        if not (excludedDirectories |> List.contains (Path.GetFileName (Path.GetDirectoryName path))) then
+            let gameName = (System.IO.Directory.GetParent path).Name
+            let nation = Path.GetFileNameWithoutExtension path
+            let fileDest, isNewGame = getTempFilePath gameName path
 
-        copy (path, fileDest)
-        if isNewGame then
-            dispatch (NewGame(gameName))
+            copy (path, fileDest)
+            if isNewGame then
+                dispatch (NewGame(gameName))
 
-        dispatch (NewFile(gameName, fileDest, nation))
+            dispatch (NewFile(gameName, fileDest, nation))
 
     member this.Updated(path: FullPath) =
-        let gameName = (System.IO.Directory.GetParent path).Name
-        copy (path, getTempFilePath gameName (Path.GetFileName path) |> fst)
-        // I can't think of any changes needed to model state at this time. Later on maybe we might want to unapprove changed files?
+        if not (excludedDirectories |> List.contains (Path.GetFileName (Path.GetDirectoryName path))) then
+            let gameName = (System.IO.Directory.GetParent path).Name
+            copy (path, getTempFilePath gameName (Path.GetFileName path) |> fst)
+            // I can't think of any changes needed to model state at this time. Later on maybe we might want to unapprove changed files?
 
     member this.CopyBackToGame(gameName, src: FullPath) = copyBack(gameName, src)
 
