@@ -106,7 +106,7 @@ let hostDom5 (gameName:string) = backgroundTask {
     else
         log $"Started hosting {gameName}"
         let! success = proc.WaitForExitAsync() // wait for Dom5 to finish
-        if proc.ExitCode <> 0 then
+        if proc.ExitCode = 0 then
             log $"Done hosting {gameName}"
         else
             Console.Error.WriteLine $"Dom5.exe exited with non-zero exit code {proc.ExitCode}. Something must be wrong."
