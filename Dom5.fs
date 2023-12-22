@@ -80,8 +80,8 @@ let setupNewWatcher (savedGamesDirectory: DirectoryPath) (onNew, onUpdated) =
         |> Array.filter (not << ignoreThisFile)
     files |> Array.iter onNew
     let watcher = new FileSystemWatcher (System.IO.Path.GetFullPath savedGamesDirectory)
-    watcher.Changed.Add (fun args -> devLogM "Changed" args; onUpdated args.FullPath)
-    watcher.Created.Add (fun args -> devLogM "Created" args; onNew args.FullPath)
+    watcher.Changed.Add (onUpdated << _.FullPath)
+    watcher.Created.Add (onNew << _.FullPath)
     watcher.IncludeSubdirectories <- true
     watcher.EnableRaisingEvents <- true
     watcherHandle <- Some watcher // keep a reference to the watcher so it doesn't get garbage collected
