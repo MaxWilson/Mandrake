@@ -35,6 +35,11 @@ let tryLoadMemory() =
 
 let init memory () = (defaultArg memory { games = Map.empty }), Cmd.Empty
 
+type Permutation = {
+    name: string
+    orders: GameFile list
+    }
+
 let justUnlocked (gameName: string, ordersName, game: Game) =
     let justApproved = game.files |> List.find (function { detail = Orders { approved = true } } as file -> file.Name = ordersName | _ -> false)
     let trns = game.files |> List.filter (function { detail = Trn _ } -> true | _ -> false) |> Map.ofListBy (_.Nation >> Option.get)
@@ -51,7 +56,11 @@ let justUnlocked (gameName: string, ordersName, game: Game) =
 
                     approvedOrders[nation] |> List.collect (fun approvedOrder -> permutationsOf (approvedOrder :: accumulatedOrders) rest)
             permutationsOf [justApproved] otherNations
-    newCombinations
+    [   for c in newCombinations do
+            for ix in 1..3 do
+                let getPermutationName (orders: GameFile list) = [gameName; yield! orders |> List.map _.Name; ix.ToString()] |> String.join "_"
+                { orders = c ; name = getPermutationName c }
+        ]
 
 let update (fs: FileSystem, ex:ExecutionEngine) msg model =
     match msg with
@@ -80,17 +89,16 @@ let update (fs: FileSystem, ex:ExecutionEngine) msg model =
                     )
             }
         let queue = justUnlocked(gameName, ordersName, game)
-        let getPermutationName (orders: GameFile list) = [gameName; yield! orders |> List.map _.Name] |> String.join "_"
-        let game = { game with children = queue |> List.map (fun orders -> { name = getPermutationName orders; status = NotStarted }) |> List.append game.children }
+        let game = { game with children = queue |> List.map (fun permutation -> { name = permutation.name; status = NotStarted }) |> List.append game.children }
         let model = { model with games = Map.add gameName game model.games }
         model,
             Cmd.ofEffect (fun dispatch ->
                 backgroundTask {
                     if queue.Length > 0 then saveMemory model // we want to make sure we don't accidentally mistake permutations for real games, even if Mandrake gets closed and reopened.
 
-                    for orders in queue do
+                    for permutation in queue do
                         // asynchronously: make a new, excluded game directory, copy all of the 2h files + ftherlnd into it, and run Dom5.exe on it, while keeping the UI informed of progress
-                        let newGameName = getPermutationName orders
+                        let newGameName = permutation.name
                         let setStatus status =
                             Avalonia.Threading.Dispatcher.UIThread.Post(fun () ->
                                 dispatch (UpdatePermutationStatus(gameName, newGameName, status)))
@@ -102,7 +110,7 @@ let update (fs: FileSystem, ex:ExecutionEngine) msg model =
                                 match file.detail with
                                 | Other | Trn _ -> fs.CopyBackToGame(newGameName, file.frozenPath, file.fileName)
                                 | Orders _ -> ()
-                            for file in orders do
+                            for file in permutation.orders do
                                 fs.CopyBackToGame(newGameName, file.frozenPath, file.fileName)
                             do! ex.Execute(newGameName, Dom5.hostDom5)
                             setStatus Complete
