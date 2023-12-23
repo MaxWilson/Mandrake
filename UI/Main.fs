@@ -133,7 +133,14 @@ let update (fs: FileSystem, ex:ExecutionEngine) msg model =
         { model with games = model.games |> Map.add gameName game }, Cmd.Empty
 
 let view (model: Model) dispatch : IView =
-    View.StackPanel [
+    let stack content =
+        ScrollViewer.create [
+            ScrollViewer.content (
+                StackPanel.create [
+                    StackPanel.children content
+                    ])
+            ]
+    stack [
         TextBlock.create [
             TextBlock.classes ["title"]
             TextBlock.text $"Games"
