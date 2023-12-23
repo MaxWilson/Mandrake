@@ -23,6 +23,7 @@ type MainWindow() as this =
                         getTempDirPath,
                         copyIfNewer,
                         copyBack,
+                        deleteByGameName,
                         fun this ->
                             Dom5.setupNewWatcher @"C:\Users\wilso\AppData\Roaming\Dominions5\savedGames" (debounce this.New, debounce this.Updated)
                     )

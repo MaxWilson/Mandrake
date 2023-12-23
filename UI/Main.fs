@@ -119,6 +119,12 @@ let update (fs: FileSystem, ex:ExecutionEngine) msg model =
                             setStatus (Error $"Error processing {newGameName}: {exn}")
                 } |> ignore
                 )
+    | DeleteOrders(gameName, ordersName) ->
+        let game = model.games[gameName]
+        let game = { game with files = game.files |> List.filter (fun f -> f.Name <> ordersName) }
+        let model = { model with games = model.games |> Map.add gameName game }
+        saveMemory model
+        model, Cmd.Empty
     | UpdatePermutationStatus(gameName, permutationName, status) ->
         let game = model.games[gameName]
         let game = { game with children = game.children |> List.map (fun p -> if p.name = permutationName then { p with status = status } else p) }
@@ -131,6 +137,15 @@ let update (fs: FileSystem, ex:ExecutionEngine) msg model =
         let game = model.games[gameName]
         let game = { game with files = game.files |> List.map (function { detail = Orders det } as f when f.Name = ordersName -> { f with detail = Orders { det with name = Some v } } | otherwise -> otherwise) }
         { model with games = model.games |> Map.add gameName game }, Cmd.Empty
+    | DeletePermutation(gameName, permutationName) ->
+        let game = model.games[gameName]
+        match game.children |> List.tryFind (fun p -> p.name = permutationName) with
+        | None -> model, Cmd.Empty
+        | Some c ->
+            let game = { game with children = game.children |> List.filter (fun p -> p.name <> permutationName) }
+            let model = { model with games = model.games |> Map.add gameName game }
+            backgroundTask { saveMemory model; fs.Delete permutationName } |> ignore
+            model, Cmd.Empty
 
 let view (model: Model) dispatch : IView =
     let stack content =
@@ -178,8 +193,12 @@ let view (model: Model) dispatch : IView =
                                     if not det.approved then
                                         let name = file.Name
                                         Button.create [
-                                            Button.content $"Approve {name} at {file.frozenPath}"
+                                            Button.content $"Approve {name}"
                                             Button.onClick(fun _ -> dispatch (Approve(game.name, name)))
+                                            ]
+                                        Button.create [
+                                            Button.content $"Delete {name}"
+                                            Button.onClick(fun _ -> dispatch (DeleteOrders(game.name, name)))
                                             ]
                                     ]
                                 ]
@@ -191,8 +210,17 @@ let view (model: Model) dispatch : IView =
                             // TextBox.onTextChanged (fun txt -> exePath.Set (Some txt); exePathValid.Set ((String.IsNullOrWhiteSpace txt |> not) && File.Exists txt))
                             ]
                     for permutation in game.children do
-                        TextBlock.create [
-                            TextBlock.text $"{permutation.name}: {permutation.status}"
+                        StackPanel.create [
+                            StackPanel.orientation Orientation.Horizontal
+                            StackPanel.children [
+                                TextBlock.create [
+                                    TextBlock.text $"{permutation.name}: {permutation.status}"
+                                    ]
+                                Button.create [
+                                    Button.content $"Delete {permutation.name}"
+                                    Button.onClick (fun _ -> dispatch (DeletePermutation(game.name, permutation.name)))
+                                    ]
+                                 ]
                             ]
                     ]
                 ]

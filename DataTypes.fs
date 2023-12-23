@@ -10,7 +10,7 @@ type FileSystemMsg =
 
 type Path = System.IO.Path
 
-type FileSystem(getTempFilePath, copy: FullPath * FullPath -> unit, copyBack: string * FullPath * string -> unit, initialize: _ -> unit) =
+type FileSystem(getTempFilePath, copy: FullPath * FullPath -> unit, copyBack: string * FullPath * string -> unit, deleteByGameName: string -> unit, initialize: _ -> unit) =
     let mutable excludedDirectories = []
     let mutable listeners = []
     let dispatch msg = for dispatch in listeners do dispatch msg
@@ -47,6 +47,7 @@ type FileSystem(getTempFilePath, copy: FullPath * FullPath -> unit, copyBack: st
             dispatch (NewFile(gameName, fileDest, nation, fileName))
 
     member this.CopyBackToGame(gameName, src: FullPath, destFileName: string) = copyBack(gameName, src, destFileName)
+    member this.Delete(gameName: string) = deleteByGameName gameName
 
 type ExecutionEngine(fs: FileSystem) =
     member this.Execute (gameName: string, hostCmd) =
@@ -88,6 +89,8 @@ module UI =
     type Msg =
         | FileSystemMsg of FileSystemMsg
         | Approve of gameName: string * ordersName: string
+        | DeleteOrders of gameName: string * ordersName: string
         | SetName of gameName: string * ordersName: string * name: string
         | SetEditingStatus of gameName: string * ordersName: string * editing: bool
         | UpdatePermutationStatus of gameName: string * permutationName: string * status: Status
+        | DeletePermutation of gameName: string * permutationName: string

@@ -7,6 +7,9 @@ open DataTypes
 
 let r = Random()
 
+let dom5Path = @"C:\usr\bin\steam\steamapps\common\Dominions5\win64\dominions5.exe"
+let dom5Saves = @"C:\Users\wilso\AppData\Roaming\Dominions5\savedGames"
+
 let ignoreThisFile (file: FullPath) =
     let getDirectoryName (path: FullPath) = path |> Path.GetDirectoryName |> Path.GetFileName
     getDirectoryName file = "newlords"
@@ -68,8 +71,13 @@ let copyIfNewer (src, dest) =
         if srcInfo.LastWriteTime > destInfo.LastWriteTime then
             robustCopy src dest
 let copyBack (gameName: string, src: FullPath, destfileName: string) =
-    let dest = Path.Combine(@"C:\Users\wilso\AppData\Roaming\Dominions5\savedGames", gameName, destfileName)
+    let dest = Path.Combine(dom5Saves, gameName, destfileName)
     robustCopy src dest
+
+let deleteByGameName (gameName: string) =
+    let path = Path.Combine(dom5Saves, gameName)
+    if Directory.Exists path then
+        Directory.Delete(path, true) |> ignore
 
 let debounce f =
     let mutable mostRecent = Map.empty
@@ -102,8 +110,8 @@ open System.Diagnostics
 /// run C:\usr\bin\steam\steamapps\common\Dominions5\win64\dominions5.exe  -T -g <name> --host, see https://www.illwinter.com/dom5/techmanual.html#network-options for details
 let hostDom5 (gameName:string) = backgroundTask {
     use proc = new Process()
-    log $"""About to execute C:\usr\bin\steam\steamapps\common\Dominions5\win64\dominions5.exe -T -g {gameName} --host"""
-    proc.StartInfo.FileName <- @"C:\usr\bin\steam\steamapps\common\Dominions5\win64\dominions5.exe"
+    log $"""About to execute {dom5Path} -T -g {gameName} --host"""
+    proc.StartInfo.FileName <- dom5Path
     proc.StartInfo.Arguments <- $"-T -g {gameName} --host"
     proc.StartInfo.UseShellExecute <- false
     proc.StartInfo.RedirectStandardOutput <- true

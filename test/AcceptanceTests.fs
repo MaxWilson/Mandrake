@@ -63,6 +63,7 @@ let tests =
                     (fun gameName path -> Path.Combine(gameName, Path.GetFileName path), true), // always pretend to be new, and create a path name that looks like a plausible path but can also be easily parsed by fakeCopy
                     fakeCopy,
                     copyBack,
+                    ignore,
                     fun this ->
                         fakeFileSystemWatcher <-
                             {|  create = fun path -> this.New path
