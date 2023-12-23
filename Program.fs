@@ -28,7 +28,13 @@ type MainWindow() as this =
                     )
 
         let engine = ExecutionEngine fs
-        Elmish.Program.mkProgram (init (tryLoadMemory())) (update(fs, engine)) view
+        let memory = tryLoadMemory()
+        match memory with
+        | None -> ()
+        | Some model ->
+            for permutation in model.games.Values |> Seq.collect _.children do
+                fs.exclude permutation.name
+        Elmish.Program.mkProgram (init memory) (update(fs, engine)) view
         |> Program.withHost this
         |> Program.withSubscription (fun model ->
             Sub.batch [
