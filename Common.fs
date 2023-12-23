@@ -175,7 +175,7 @@ module Task =
     let waitFirst (tasks: _ Task seq) = Task.WaitAny(tasks |> Array.ofSeq |> Array.map (fun t -> t :> Task))
 
 let inline log v = System.Console.WriteLine (box v)
-let inline logM (msg:string) v = log msg; log v
+let inline logM (msg:string) v = System.Console.Write msg; log v
 let inline trace v =
 #if DEBUG
     printfn "Trace: %A" v

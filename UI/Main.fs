@@ -6,8 +6,34 @@ open Avalonia.FuncUI.Types
 open Elmish
 open DataTypes.UI
 open Avalonia.Layout
+open Thoth.Json.Net
 
-let init _ = { games = Map.empty }, Cmd.Empty
+let appStatePath = System.IO.Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData), "Mandrake", "mandrake.json")
+let appStateDir = System.IO.Path.GetDirectoryName(appStatePath)
+
+let saveMemory (memory: Model) =
+    let json = Encode.Auto.toString memory
+    logM "Writing to" appStatePath
+    if not (System.IO.Directory.Exists appStateDir) then
+        System.IO.Directory.CreateDirectory appStateDir |> ignore
+    System.IO.File.WriteAllText(appStatePath, json)
+
+let tryLoadMemory() =
+    try
+        logM "Reading from" appStatePath
+        if System.IO.File.Exists(appStatePath) then
+            let json = System.IO.File.ReadAllText appStatePath
+            match Decode.Auto.fromString<Model> json with
+            | Ok model -> Some model
+            | Result.Error err ->
+                log $"Error loading mandrake.json: {err}"
+                None
+        else None
+    with exn ->
+        log $"Error loading mandrake.json: {exn}"
+        None
+
+let init memory () = (defaultArg memory { games = Map.empty }), Cmd.Empty
 
 let justUnlocked (gameName: string, ordersName, game: Game) =
     let justApproved = game.files |> List.find (function { detail = Orders { approved = true } } as file -> file.Name = ordersName | _ -> false)
@@ -56,9 +82,12 @@ let update (fs: FileSystem, ex:ExecutionEngine) msg model =
         let queue = justUnlocked(gameName, ordersName, game)
         let getPermutationName (orders: GameFile list) = [gameName; yield! orders |> List.map _.Name] |> String.join "_"
         let game = { game with children = queue |> List.map (fun orders -> { name = getPermutationName orders; status = NotStarted }) |> List.append game.children }
-        { model with games = Map.add gameName game model.games },
+        let model = { model with games = Map.add gameName game model.games }
+        model,
             Cmd.ofEffect (fun dispatch ->
                 backgroundTask {
+                    if queue.Length > 0 then saveMemory model // we want to make sure we don't accidentally mistake permutations for real games, even if Mandrake gets closed and reopened.
+
                     for orders in queue do
                         // asynchronously: make a new, excluded game directory, copy all of the 2h files + ftherlnd into it, and run Dom5.exe on it, while keeping the UI informed of progress
                         let newGameName = getPermutationName orders

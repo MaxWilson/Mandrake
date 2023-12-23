@@ -71,7 +71,7 @@ let tests =
 
             let engine = ExecutionEngine fs
 
-            let model, dispatch = TestElmish.synchronous init (update (fs, engine))
+            let model, dispatch = TestElmish.synchronous (init None) (update (fs, engine))
             fs.register (FileSystemMsg >> dispatch)
             fs.initialize()
 
