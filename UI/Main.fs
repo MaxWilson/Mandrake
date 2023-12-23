@@ -158,6 +158,10 @@ let view (model: Model) dispatch : IView =
                                             TextBox.text (file.Name)
                                             TextBox.onTextChanged (fun txt -> dispatch (SetName(game.name, file.Name, txt)))
                                             TextBox.onDoubleTapped(fun _ -> dispatch (SetEditingStatus(game.name, file.Name, false)))
+                                            TextBox.onKeyDown(fun e ->
+                                                if e.KeySymbol = "\r" then
+                                                    dispatch (SetEditingStatus(game.name, file.Name, false))
+                                                )
                                             ]
                                     else
                                         TextBlock.create [
