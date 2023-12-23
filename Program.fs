@@ -24,7 +24,7 @@ type MainWindow() as this =
                         copyIfNewer,
                         copyBack,
                         fun this ->
-                            Dom5.setupNewWatcher @"C:\Users\wilso\AppData\Roaming\Dominions5\savedGames" (this.New, this.Updated)
+                            Dom5.setupNewWatcher @"C:\Users\wilso\AppData\Roaming\Dominions5\savedGames" (debounce this.New, debounce this.Updated)
                     )
 
         let engine = ExecutionEngine fs

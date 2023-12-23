@@ -71,6 +71,17 @@ let copyBack (gameName: string, src: FullPath, destfileName: string) =
     let dest = Path.Combine(@"C:\Users\wilso\AppData\Roaming\Dominions5\savedGames", gameName, destfileName)
     robustCopy src dest
 
+let debounce f =
+    let mutable mostRecent = Map.empty
+    fun arg ->
+        let key = System.Guid.NewGuid()
+        mostRecent <- mostRecent |> Map.add arg key
+        backgroundTask {
+            do! Task.Delay 500
+            if mostRecent[arg] = key then
+                f arg
+        } |> ignore
+
 let mutable watcherHandle = None
 let setupNewWatcher (savedGamesDirectory: DirectoryPath) (onNew, onUpdated) =
     let mutable files =
