@@ -56,6 +56,7 @@ module UI =
     type OrdersDetail = {
         index: int
         approved: bool
+        editing: bool
         nation: string
         name: string option // defaults to nation but can be renamed to describe the kind of orders, e.g. kamikaze vs. cautious. Will show up in name of generated games.
         }
@@ -87,4 +88,6 @@ module UI =
     type Msg =
         | FileSystemMsg of FileSystemMsg
         | Approve of gameName: string * ordersName: string
+        | SetName of gameName: string * ordersName: string * name: string
+        | SetEditingStatus of gameName: string * ordersName: string * editing: bool
         | UpdatePermutationStatus of gameName: string * permutationName: string * status: Status

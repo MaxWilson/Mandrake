@@ -64,7 +64,7 @@ let update (fs: FileSystem, ex:ExecutionEngine) msg model =
             | ".trn" -> Trn nation
             | ".2h" ->
                 let priorIx = game.files |> List.collect (function { detail = Orders { index = ix; nation = nation' } } when nation' = nation -> [ ix ] | _ -> []) |> List.append [0] |> List.max
-                Orders { name = None; approved = false; index = priorIx + 1; nation = nation }
+                Orders { name = None; approved = false; index = priorIx + 1; nation = nation; editing = false }
             | _ -> Other
         let file = { frozenPath = path; detail = detail; fileName = fileName }
         { model with games = Map.add game.name { game with files = file :: game.files } model.games }, Cmd.Empty
@@ -115,7 +115,14 @@ let update (fs: FileSystem, ex:ExecutionEngine) msg model =
         let game = model.games[gameName]
         let game = { game with children = game.children |> List.map (fun p -> if p.name = permutationName then { p with status = status } else p) }
         { model with games = model.games |> Map.add gameName game }, Cmd.Empty
-
+    | SetEditingStatus(gameName, ordersName, v) ->
+        let game = model.games[gameName]
+        let game = { game with files = game.files |> List.map (function { detail = Orders det } as f when f.Name = ordersName -> { f with detail = Orders { det with editing = v } } | otherwise -> otherwise) }
+        { model with games = model.games |> Map.add gameName game }, Cmd.Empty
+    | SetName(gameName, ordersName, v) ->
+        let game = model.games[gameName]
+        let game = { game with files = game.files |> List.map (function { detail = Orders det } as f when f.Name = ordersName -> { f with detail = Orders { det with name = Some v } } | otherwise -> otherwise) }
+        { model with games = model.games |> Map.add gameName game }, Cmd.Empty
 
 let view (model: Model) dispatch : IView =
     View.StackPanel [
@@ -138,9 +145,17 @@ let view (model: Model) dispatch : IView =
                             StackPanel.create [
                                 StackPanel.orientation Orientation.Horizontal
                                 StackPanel.children [
-                                    TextBlock.create [
-                                        TextBlock.text (file.Name)
-                                        ]
+                                    if det.editing then
+                                        TextBox.create [
+                                            TextBox.text (file.Name)
+                                            TextBox.onTextChanged (fun txt -> dispatch (SetName(game.name, file.Name, txt)))
+                                            TextBox.onDoubleTapped(fun _ -> dispatch (SetEditingStatus(game.name, file.Name, false)))
+                                            ]
+                                    else
+                                        TextBlock.create [
+                                            TextBlock.text (file.Name)
+                                            TextBlock.onDoubleTapped(fun _ -> dispatch (SetEditingStatus(game.name, file.Name, true)))
+                                            ]
                                     if not det.approved then
                                         let name = file.Name
                                         Button.create [
