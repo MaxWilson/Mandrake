@@ -29,3 +29,7 @@ type TextBox with
         TextBox.onDoubleTapped(logic, SubPatchOptions.Always) // We always want it to use the logic we specify, instead of keeping whatever logic it had before. See https://github.com/fsprojects/Avalonia.FuncUI/issues/379
     static member onTextChanged logic =
         TextBox.onTextChanged(logic, SubPatchOptions.Always) // We always want it to use the logic we specify, instead of keeping whatever logic it had before. See https://github.com/fsprojects/Avalonia.FuncUI/issues/379
+    static member onKeyUp logic =
+        TextBox.onKeyUp(logic, SubPatchOptions.Always) // We always want it to use the logic we specify, instead of keeping whatever logic it had before. See https://github.com/fsprojects/Avalonia.FuncUI/issues/379
+    static member onKeyDown logic =
+        TextBox.onKeyDown(logic, SubPatchOptions.Always) // We always want it to use the logic we specify, instead of keeping whatever logic it had before. See https://github.com/fsprojects/Avalonia.FuncUI/issues/379

@@ -159,7 +159,7 @@ let view (model: Model) dispatch : IView =
                                             TextBox.onTextChanged (fun txt -> dispatch (SetName(game.name, file.Name, txt)))
                                             TextBox.onDoubleTapped(fun _ -> dispatch (SetEditingStatus(game.name, file.Name, false)))
                                             TextBox.onKeyDown(fun e ->
-                                                if e.KeySymbol = "\r" then
+                                                if ["Return"; "Enter"] |> List.contains (e.Key.ToString()) then
                                                     dispatch (SetEditingStatus(game.name, file.Name, false))
                                                 )
                                             ]
