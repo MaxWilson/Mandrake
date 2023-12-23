@@ -13,14 +13,14 @@ let appStateDir = System.IO.Path.GetDirectoryName(appStatePath)
 
 let saveMemory (memory: Model) =
     let json = Encode.Auto.toString memory
-    logM "Writing to" appStatePath
+    logM "Writing memory to" appStatePath
     if not (System.IO.Directory.Exists appStateDir) then
         System.IO.Directory.CreateDirectory appStateDir |> ignore
     System.IO.File.WriteAllText(appStatePath, json)
 
 let tryLoadMemory() =
     try
-        logM "Reading from" appStatePath
+        logM "Reading memory from" appStatePath
         if System.IO.File.Exists(appStatePath) then
             let json = System.IO.File.ReadAllText appStatePath
             match Decode.Auto.fromString<Model> json with

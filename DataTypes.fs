@@ -36,9 +36,15 @@ type FileSystem(getTempFilePath, copy: FullPath * FullPath -> unit, copyBack: st
 
     member this.Updated(path: FullPath) =
         if not (excludedDirectories |> List.contains (Path.GetFileName (Path.GetDirectoryName path))) then
+            let fileName = Path.GetFileName path
             let gameName = (System.IO.Directory.GetParent path).Name
-            copy (path, getTempFilePath gameName (Path.GetFileName path) |> fst)
-            // I can't think of any changes needed to model state at this time. Later on maybe we might want to unapprove changed files?
+            let nation = Path.GetFileNameWithoutExtension path
+            let fileDest, isNewGame = getTempFilePath gameName path
+
+            copy (path, fileDest)
+
+            // inform the model that a new version just came in
+            dispatch (NewFile(gameName, fileDest, nation, fileName))
 
     member this.CopyBackToGame(gameName, src: FullPath, destFileName: string) = copyBack(gameName, src, destFileName)
 
