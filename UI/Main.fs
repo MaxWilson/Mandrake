@@ -196,10 +196,11 @@ let view (model: Model) dispatch : IView =
                                             Button.content $"Approve {name}"
                                             Button.onClick(fun _ -> dispatch (Approve(game.name, name)))
                                             ]
-                                        Button.create [
-                                            Button.content $"Delete {name}"
-                                            Button.onClick(fun _ -> dispatch (DeleteOrders(game.name, name)))
-                                            ]
+                                    Button.create [
+                                        let name = file.Name
+                                        Button.content $"Delete {name}"
+                                        Button.onClick(fun _ -> dispatch (DeleteOrders(game.name, name)))
+                                        ]
                                     ]
                                 ]
                         | _ -> ()
