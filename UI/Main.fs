@@ -116,6 +116,7 @@ let update (fs: FileSystem, ex:ExecutionEngine) msg model =
                                 | Orders _ -> ()
                             for file in permutation.orders do
                                 fs.CopyBackToGame(newGameName, file.frozenPath, file.fileName)
+                            do! System.Threading.Tasks.Task.Delay 100 // klduge for mysterious error: give ftherlnd a chance to finish writing
                             do! ex.Execute(newGameName, Dom5.hostDom5)
                             setStatus Complete
                         with exn ->
