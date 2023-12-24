@@ -205,7 +205,7 @@ let view (model: Model) dispatch : IView =
                                             elif elapsed.TotalHours > 1 then $"{int elapsed.TotalHours} hours ago"
                                             elif elapsed.TotalMinutes > 1 then $"{int elapsed.TotalMinutes} minutes ago"
                                             else $"just now"
-                                        TextBlock.text $"({age})"
+                                        TextBlock.text $" ({age})"
                                         TextBlock.onDoubleTapped(fun _ -> dispatch (SetEditingStatus(game.name, file.Name, true)))
                                         ]
                                     if not det.approved then
