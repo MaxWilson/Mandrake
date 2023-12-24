@@ -6,7 +6,7 @@ type DirectoryPath = string
 
 type FileSystemMsg =
 | NewGame of gameName:string
-| NewFile of gameName: string * FullPath * nation:string * fileName: string
+| NewFile of gameName: string * FullPath * nation:string * fileName: string * lastModified: System.DateTimeOffset
 
 type Path = System.IO.Path
 
@@ -32,7 +32,7 @@ type FileSystem(getTempFilePath, copy: FullPath * FullPath -> unit, copyBack: st
             if isNewGame then
                 dispatch (NewGame(gameName))
 
-            dispatch (NewFile(gameName, fileDest, nation, fileName))
+            dispatch (NewFile(gameName, fileDest, nation, fileName, System.IO.FileInfo(path).LastWriteTimeUtc |> System.DateTimeOffset))
 
     member this.Updated(path: FullPath) =
         if not (excludedDirectories |> List.contains (Path.GetFileName (Path.GetDirectoryName path))) then
@@ -44,7 +44,7 @@ type FileSystem(getTempFilePath, copy: FullPath * FullPath -> unit, copyBack: st
             copy (path, fileDest)
 
             // inform the model that a new version just came in
-            dispatch (NewFile(gameName, fileDest, nation, fileName))
+            dispatch (NewFile(gameName, fileDest, nation, fileName, System.IO.FileInfo(path).LastWriteTimeUtc |> System.DateTimeOffset))
 
     member this.CopyBackToGame(gameName, src: FullPath, destFileName: string) = copyBack(gameName, src, destFileName)
     member this.Delete(gameName: string) = deleteByGameName gameName
@@ -67,6 +67,7 @@ module UI =
         | Other
     type GameFile = {
         fileName: string
+        lastWriteTime: System.DateTimeOffset
         frozenPath: FullPath // not subject to change directly by Dom5.exe because it's in a temp directory, hence "frozen"
         detail: FileDetail
         }
@@ -85,9 +86,11 @@ module UI =
         }
     type Model = {
         games: Map<string, Game>
+        autoApprove: bool
         }
     type Msg =
         | FileSystemMsg of FileSystemMsg
+        | SetAutoApprove of bool
         | Approve of gameName: string * ordersName: string
         | DeleteOrders of gameName: string * ordersName: string
         | SetName of gameName: string * ordersName: string * name: string

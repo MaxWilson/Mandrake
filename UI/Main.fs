@@ -13,7 +13,6 @@ let appStateDir = System.IO.Path.GetDirectoryName(appStatePath)
 
 let saveMemory (memory: Model) =
     let json = Encode.Auto.toString memory
-    logM "Writing memory to" appStatePath
     if not (System.IO.Directory.Exists appStateDir) then
         System.IO.Directory.CreateDirectory appStateDir |> ignore
     System.IO.File.WriteAllText(appStatePath, json)
@@ -33,7 +32,7 @@ let tryLoadMemory() =
         log $"Error loading mandrake.json: {exn}"
         None
 
-let init memory () = (defaultArg memory { games = Map.empty }), Cmd.Empty
+let init memory () = (defaultArg memory { games = Map.empty; autoApprove = false }), Cmd.Empty
 
 type Permutation = {
     name: string
@@ -66,17 +65,20 @@ let update (fs: FileSystem, ex:ExecutionEngine) msg model =
     match msg with
     | FileSystemMsg(NewGame(game)) ->
         { model with games = Map.change game (Option.orElse (Some { name = game; files = []; children = [] })) model.games }, Cmd.Empty
-    | FileSystemMsg(NewFile(game, path, nation, fileName)) ->
+    | FileSystemMsg(NewFile(game, path, nation, fileName, lastWriteTime)) ->
         let game = model.games |> Map.tryFind game |> Option.defaultValue { name = game; files = []; children = [] }
-        let detail =
-            match Path.GetExtension path with
-            | ".trn" -> Trn nation
-            | ".2h" ->
-                let priorIx = game.files |> List.collect (function { detail = Orders { index = ix; nation = nation' } } when nation' = nation -> [ ix ] | _ -> []) |> List.append [0] |> List.max
-                Orders { name = None; approved = false; index = priorIx + 1; nation = nation; editing = false }
-            | _ -> Other
-        let file = { frozenPath = path; detail = detail; fileName = fileName }
-        { model with games = Map.add game.name { game with files = file :: game.files } model.games }, Cmd.Empty
+        if game.files |> List.exists (fun f -> f.fileName = fileName && f.lastWriteTime = lastWriteTime) then model, Cmd.Empty // ignore the duplicate
+        else
+            let detail =
+                match Path.GetExtension path with
+                | ".trn" -> Trn nation
+                | ".2h" ->
+                    let priorIx = game.files |> List.collect (function { detail = Orders { index = ix; nation = nation' } } when nation' = nation -> [ ix ] | _ -> []) |> List.append [0] |> List.max
+                    Orders { name = None; approved = model.autoApprove; index = priorIx + 1; nation = nation; editing = false }
+                | _ -> Other
+            let file = { frozenPath = path; detail = detail; fileName = fileName; lastWriteTime = lastWriteTime }
+            { model with games = Map.add game.name { game with files = file :: game.files } model.games }, Cmd.Empty
+    | SetAutoApprove v -> { model with autoApprove = v }, Cmd.Empty
     | Approve(gameName, ordersName) ->
         let game = {
             model.games[gameName]
@@ -160,6 +162,10 @@ let view (model: Model) dispatch : IView =
             TextBlock.classes ["title"]
             TextBlock.text $"Games"
             ]
+        Button.create [
+            Button.content $"Auto-Approve incoming orders: {model.autoApprove}"
+            Button.onClick (fun _ -> dispatch (SetAutoApprove (not model.autoApprove)))
+            ]
         for game in model.games.Values do
             StackPanel.create [
                 StackPanel.orientation Orientation.Vertical
@@ -177,7 +183,7 @@ let view (model: Model) dispatch : IView =
                                 StackPanel.children [
                                     if det.editing then
                                         TextBox.create [
-                                            TextBox.text (file.Name)
+                                            TextBox.text file.Name
                                             TextBox.onTextChanged (fun txt -> dispatch (SetName(game.name, file.Name, txt)))
                                             TextBox.onDoubleTapped(fun _ -> dispatch (SetEditingStatus(game.name, file.Name, false)))
                                             TextBox.onKeyDown(fun e ->
@@ -190,6 +196,16 @@ let view (model: Model) dispatch : IView =
                                             TextBlock.text (file.Name)
                                             TextBlock.onDoubleTapped(fun _ -> dispatch (SetEditingStatus(game.name, file.Name, true)))
                                             ]
+                                    TextBlock.create [
+                                        let age =
+                                            let elapsed = (System.DateTimeOffset.UtcNow - file.lastWriteTime)
+                                            if elapsed.TotalDays > 1 then $"{int elapsed.TotalDays} days ago"
+                                            elif elapsed.TotalHours > 1 then $"{int elapsed.TotalHours} hours ago"
+                                            elif elapsed.TotalMinutes > 1 then $"{int elapsed.TotalMinutes} minutes ago"
+                                            else $"just now"
+                                        TextBlock.text $"({age})"
+                                        TextBlock.onDoubleTapped(fun _ -> dispatch (SetEditingStatus(game.name, file.Name, true)))
+                                        ]
                                     if not det.approved then
                                         let name = file.Name
                                         Button.create [
@@ -207,22 +223,21 @@ let view (model: Model) dispatch : IView =
                     if game.children.Length > 0 then
                         TextBlock.create [
                             TextBlock.classes ["subtitle"]
-                            TextBlock.text (game.name)
-                            // TextBox.onTextChanged (fun txt -> exePath.Set (Some txt); exePathValid.Set ((String.IsNullOrWhiteSpace txt |> not) && File.Exists txt))
+                            TextBlock.text "    Permutations"
                             ]
-                    for permutation in game.children do
-                        StackPanel.create [
-                            StackPanel.orientation Orientation.Horizontal
-                            StackPanel.children [
-                                TextBlock.create [
-                                    TextBlock.text $"{permutation.name}: {permutation.status}"
+                        for permutation in game.children do
+                            StackPanel.create [
+                                StackPanel.orientation Orientation.Horizontal
+                                StackPanel.children [
+                                    TextBlock.create [
+                                        TextBlock.text $"        {permutation.name}: {permutation.status}"
+                                        ]
+                                    Button.create [
+                                        Button.content $"Delete {permutation.name}"
+                                        Button.onClick (fun _ -> dispatch (DeletePermutation(game.name, permutation.name)))
+                                        ]
                                     ]
-                                Button.create [
-                                    Button.content $"Delete {permutation.name}"
-                                    Button.onClick (fun _ -> dispatch (DeletePermutation(game.name, permutation.name)))
-                                    ]
-                                 ]
-                            ]
+                                ]
                     ]
                 ]
         ]
