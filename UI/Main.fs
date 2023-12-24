@@ -74,10 +74,12 @@ let update (fs: FileSystem, ex:ExecutionEngine) msg model =
                 | ".trn" -> Trn nation
                 | ".2h" ->
                     let priorIx = game.files |> List.collect (function { detail = Orders { index = ix; nation = nation' } } when nation' = nation -> [ ix ] | _ -> []) |> List.append [0] |> List.max
-                    Orders { name = None; approved = model.autoApprove; index = priorIx + 1; nation = nation; editing = false }
+                    Orders { name = None; approved = false; index = priorIx + 1; nation = nation; editing = false }
                 | _ -> Other
             let file = { frozenPath = path; detail = detail; fileName = fileName; lastWriteTime = lastWriteTime }
-            { model with games = Map.add game.name { game with files = file :: game.files } model.games }, Cmd.Empty
+            { model with games = Map.add game.name { game with files = file :: game.files } model.games },
+                // auto-approve if enabled
+                match file.detail with Orders _ when model.autoApprove -> Cmd.ofMsg (Approve(game.name, file.Name)) | _ -> Cmd.Empty
     | SetAutoApprove v -> { model with autoApprove = v }, Cmd.Empty
     | Approve(gameName, ordersName) ->
         let game = {
