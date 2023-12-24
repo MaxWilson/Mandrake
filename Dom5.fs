@@ -12,7 +12,7 @@ let dom5Saves = @"C:\Users\wilso\AppData\Roaming\Dominions5\savedGames"
 
 let ignoreThisFile (file: FullPath) =
     let getDirectoryName (path: FullPath) = path |> Path.GetDirectoryName |> Path.GetFileName
-    getDirectoryName file = "newlords"
+    ["newlords"; "savedgames"] |> List.contains ((getDirectoryName file).ToLowerInvariant())
 
 module File =
     let equivalent src dest =
