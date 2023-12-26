@@ -12,6 +12,7 @@
     <Compile Include="Dom5.fs" />
     <Compile Include="Commands.fs" />
     <AvaloniaResource Include="**\*.xaml" />
+    <AvaloniaResource Include="Assets/Mandrake.ico" />
     <Compile Include="UI\UI.Common.fs" />
     <None Include="UI\Styles.xaml" />
     <Compile Include="UI\UI.Settings.fs" />

@@ -12,12 +12,16 @@ open Avalonia.Layout
 open Avalonia.FuncUI.Types
 open Avalonia.FuncUI.Elmish
 open System.Threading.Tasks
-
+open System.Reflection
 open UI.Main
 open Dom5
+open Avalonia.Platform
+open System
 type MainWindow() as this =
     inherit HostWindow()
     do
+        let bitmap = new Avalonia.Media.Imaging.Bitmap(AssetLoader.Open(new Uri($"avares://{Assembly.GetExecutingAssembly().GetName().Name}/Assets/Mandrake.ico")))
+        base.Icon <- WindowIcon(bitmap)
         base.Title <- "Mandrake for Dom5"
         let fs = FileSystem(
                         getTempDirPath,
