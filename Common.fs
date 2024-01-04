@@ -188,8 +188,8 @@ let inline traceM (txt:string) v =
 #if DEBUG
     System.Console.Write $"{txt}: "
     System.Console.WriteLine (box v)
-    v
 #endif
+    v
 
 // log for dev purposes, for when exceptions aren't quite enough context
 let inline devLog v =
