@@ -7,9 +7,7 @@ open Elmish
 open DataTypes.UI
 open Avalonia.Layout
 open Thoth.Json.Net
-
-let appStatePath = System.IO.Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData), "Mandrake", "mandrake.json")
-let appStateDir = System.IO.Path.GetDirectoryName(appStatePath)
+open Settings
 
 let saveMemory (memory: Model) =
     let json = Encode.Auto.toString memory
@@ -63,6 +61,20 @@ let justUnlocked (gameName: string, ordersName, game: Game) =
 
 let update (fs: FileSystem, ex:ExecutionEngine) msg model =
     match msg with
+    | Dom5ExePathChanged path ->
+        if System.IO.File.Exists path then
+            // we keep this particular path external to the model, so no changes to model
+            Settings.dom5Path <- Some path
+            Settings.saveFileSettings()
+            fs.initialize()
+        model, Cmd.Empty
+    | Dom5SavesPathChanged path ->
+        if System.IO.Directory.Exists path then
+            // we keep this particular path external to the model, so no changes to model
+            Settings.dom5Saves <- Some path
+            Settings.saveFileSettings()
+            fs.initialize()
+        model, Cmd.Empty
     | FileSystemMsg(NewGame(game)) ->
         { model with games = Map.change game (Option.orElse (Some { name = game; files = []; children = [] })) model.games }, Cmd.Empty
     | FileSystemMsg(NewFile(game, path, nation, fileName, lastWriteTime)) ->

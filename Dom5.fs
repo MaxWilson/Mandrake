@@ -91,6 +91,10 @@ let debounce f =
 
 let mutable watcherHandle = None
 let setupNewWatcher (savedGamesDirectory: DirectoryPath) (onNew, onUpdated) =
+    match watcherHandle with
+    | None -> ()
+    | Some oldWatcher ->
+        (oldWatcher :> System.IDisposable).Dispose()
     let mutable files =
         Directory.GetFiles(savedGamesDirectory, "ftherlnd", System.IO.SearchOption.AllDirectories)
         |> Array.append (Directory.GetFiles(savedGamesDirectory, "*.trn", System.IO.SearchOption.AllDirectories))

@@ -89,6 +89,8 @@ module UI =
         autoApprove: bool
         }
     type Msg =
+        | Dom5SavesPathChanged of string
+        | Dom5ExePathChanged of string // reinitialize fileSystemWatcher!
         | FileSystemMsg of FileSystemMsg
         | SetAutoApprove of bool
         | Approve of gameName: string * ordersName: string

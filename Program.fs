@@ -29,8 +29,10 @@ type MainWindow() as this =
                         copyBack,
                         deleteByGameName,
                         fun this ->
-                            if Settings.dom5Saves.IsNone then shouldntHappen "dom5Path should have already been set"
-                            Dom5.setupNewWatcher Settings.dom5Saves.Value (debounce this.New, debounce this.Updated)
+                            match Settings.dom5Saves with
+                            | None -> () // delay initialization until we have somewhere to watch
+                            | Some path ->
+                                Dom5.setupNewWatcher path (debounce this.New, debounce this.Updated)
                     )
 
         let engine = ExecutionEngine fs

@@ -11,7 +11,9 @@ type FileSettings = {
     }
 
 // e.g. c:\users\wilso\AppData\Roaming\Mandrake\settings.json
-let settingsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Mandrake", "settings.json")
+let appStateDir = System.Reflection.Assembly.GetEntryAssembly().Location |> System.IO.Path.GetDirectoryName
+let settingsPath = Path.Combine(appStateDir, "settings.json")
+let appStatePath = System.IO.Path.Combine(appStateDir, "mandrake.json")
 
 let mutable dom5Path, dom5Saves = // e.g. @"C:\usr\bin\steam\steamapps\common\Dominions5\win64\dominions5.exe", @"C:\Users\wilso\AppData\Roaming\Dominions5\savedGames"
     let fresh = None, None
