@@ -87,10 +87,25 @@ module UI =
     type Model = {
         games: Map<string, Game>
         autoApprove: bool
+        pendingDom5ExePath: string option
+        pendingDom5ExePathIsValid: bool
+        pendingDom5SavesPath: string option
+        pendingDom5SavesPathIsValid: bool
         }
+        with
+        static member fresh: Model = {
+            games = Map.empty
+            autoApprove = false
+            pendingDom5ExePath = None
+            pendingDom5ExePathIsValid = false
+            pendingDom5SavesPath = None
+            pendingDom5SavesPathIsValid = false
+            }
     type Msg =
         | Dom5SavesPathChanged of string
         | Dom5ExePathChanged of string // reinitialize fileSystemWatcher!
+        | Dom5SavesPathAccept
+        | Dom5ExePathAccept
         | FileSystemMsg of FileSystemMsg
         | SetAutoApprove of bool
         | Approve of gameName: string * ordersName: string

@@ -30,7 +30,7 @@ let tryLoadMemory() =
         log $"Error loading mandrake.json: {exn}"
         None
 
-let init memory () = (defaultArg memory { games = Map.empty; autoApprove = false }), Cmd.Empty
+let init memory () = (defaultArg memory Model.fresh), Cmd.Empty
 
 type Permutation = {
     name: string
@@ -62,16 +62,20 @@ let justUnlocked (gameName: string, ordersName, game: Game) =
 let update (fs: FileSystem, ex:ExecutionEngine) msg model =
     match msg with
     | Dom5ExePathChanged path ->
-        if System.IO.File.Exists path then
+        { model with pendingDom5ExePath = Some path; pendingDom5ExePathIsValid = System.IO.File.Exists path }, Cmd.Empty
+    | Dom5ExePathAccept ->
+        if model.pendingDom5ExePathIsValid then
             // we keep this particular path external to the model, so no changes to model
-            Settings.dom5Path <- Some path
+            Settings.dom5Path <- model.pendingDom5ExePath
             Settings.saveFileSettings()
             fs.initialize()
         model, Cmd.Empty
     | Dom5SavesPathChanged path ->
-        if System.IO.Directory.Exists path then
+        { model with pendingDom5SavesPath = Some path; pendingDom5SavesPathIsValid = System.IO.Directory.Exists path && (System.IO.Path.GetFileName path).ToLowerInvariant() = "savedgames" }, Cmd.Empty
+    | Dom5SavesPathAccept ->
+        if model.pendingDom5SavesPathIsValid then
             // we keep this particular path external to the model, so no changes to model
-            Settings.dom5Saves <- Some path
+            Settings.dom5Saves <- model.pendingDom5SavesPath
             Settings.saveFileSettings()
             fs.initialize()
         model, Cmd.Empty
@@ -164,7 +168,7 @@ let update (fs: FileSystem, ex:ExecutionEngine) msg model =
             backgroundTask { saveMemory model; fs.Delete permutationName } |> ignore
             model, Cmd.Empty
 
-let view (model: Model) dispatch : IView =
+let viewGames (model: Model) dispatch : IView =
     let stack content =
         ScrollViewer.create [
             ScrollViewer.content (
@@ -256,23 +260,44 @@ let view (model: Model) dispatch : IView =
                     ]
                 ]
         ]
-    // match model.fileSettings with
-    // | { exePath = Some exePath
-    //     dataDirectory = Some dataDirectory } when not model.showSettings ->
-    //     View.DockPanel
-    //         [ AcceptanceQueue.view
-    //               model.acceptance
-    //               ({ AcceptanceQueue.approved = ExecutionQueue.Queue >> Execution >> dispatch
-    //                  AcceptanceQueue.showSettings = thunk1 dispatch ShowSettings })
-    //               (dispatch << Acceptance)
-    //           ExecutionQueue.view
-    //               model.acceptance
-    //               ({ ExecutionQueue.finished = notImpl Executed.Queue >> Results >> dispatch })
-    //               (dispatch << Execution)
-    //           Executed.view model.acceptance (dispatch << Results) ]
-    // | _ ->
-    //     let onSend settings =
-    //         Settings.saveFileSettings settings
-    //         dispatch (ReceiveFileSettings settings)
 
-    //     UI.Settings.view ({ ok = onSend }, model.fileSettings)
+let view (model:Model) dispatch =
+    if dom5Path.IsSome && dom5Saves.IsSome then
+        viewGames model dispatch
+    else
+        StackPanel.create [
+            StackPanel.children [
+                TextBlock.create [
+                    TextBlock.classes ["title"]
+                    TextBlock.text $"Setup"
+                    ]
+                TextBlock.create [
+                    TextBlock.classes ["subtitle"]
+                    TextBlock.text $@"Path to Dominions executable, e.g. C:\usr\bin\steam\steamapps\common\Dominions5\win64\dominions5.exe"
+                    ]
+                TextBox.create [
+                    TextBlock.classes [if model.pendingDom5ExePathIsValid then "valid" else "invalid"]
+                    TextBox.text (dom5Path |> Option.defaultValue "")
+                    TextBox.onTextChanged (fun txt -> dispatch (Dom5ExePathChanged txt))
+                    ]
+                Button.create [
+                    Button.content "OK"
+                    Button.isEnabled (model.pendingDom5ExePathIsValid && model.pendingDom5ExePath <> dom5Path)
+                    Button.onClick (fun _ -> dispatch Dom5ExePathAccept)
+                    ]
+                TextBlock.create [
+                    TextBlock.classes ["subtitle"]
+                    TextBlock.text $@"Path to saved games folder, e.g. C:\Users\<userName>\AppData\Roaming\Dominions5\savedGames"
+                    ]
+                TextBox.create [
+                    TextBlock.classes [if model.pendingDom5SavesPathIsValid then "valid" else "invalid"]
+                    TextBox.text (dom5Saves |> Option.defaultValue "")
+                    TextBox.onTextChanged (fun txt -> dispatch (Dom5SavesPathChanged txt))
+                    ]
+                Button.create [
+                    Button.content "OK"
+                    Button.isEnabled (model.pendingDom5SavesPathIsValid && model.pendingDom5SavesPath <> dom5Saves)
+                    Button.onClick (fun _ -> dispatch Dom5SavesPathAccept)
+                    ]
+                ]
+            ]
