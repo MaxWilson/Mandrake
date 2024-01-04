@@ -29,7 +29,8 @@ type MainWindow() as this =
                         copyBack,
                         deleteByGameName,
                         fun this ->
-                            Dom5.setupNewWatcher @"C:\Users\wilso\AppData\Roaming\Dominions5\savedGames" (debounce this.New, debounce this.Updated)
+                            if Settings.dom5Saves.IsNone then shouldntHappen "dom5Path should have already been set"
+                            Dom5.setupNewWatcher Settings.dom5Saves.Value (debounce this.New, debounce this.Updated)
                     )
 
         let engine = ExecutionEngine fs

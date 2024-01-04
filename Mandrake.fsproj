@@ -7,10 +7,8 @@
     <None Include="Scratch.fsx" />
     <Compile Include="Common.fs" />
     <Compile Include="DataTypes.fs" />
-    <Compile Include="FileSystem.fs" />
     <Compile Include="Settings.fs" />
     <Compile Include="Dom5.fs" />
-    <Compile Include="Commands.fs" />
     <AvaloniaResource Include="**\*.xaml" />
     <AvaloniaResource Include="Assets/Mandrake.ico" />
     <Compile Include="UI\UI.Common.fs" />
