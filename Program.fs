@@ -16,7 +16,9 @@ open System.Reflection
 open UI.Main
 open Dom5
 open Avalonia.Platform
+open Avalonia.FuncUI.Elmish.ElmishHook
 open System
+
 type MainWindow() as this =
     inherit HostWindow()
     do
@@ -42,21 +44,22 @@ type MainWindow() as this =
         | Some model ->
             for permutation in model.games.Values |> Seq.collect _.children do
                 fs.exclude permutation.name
-        Elmish.Program.mkProgram (init memory) (update(fs, engine)) view
-        |> Program.withHost this
-        |> Program.withSubscription (fun model ->
-            Sub.batch [
-                [[], fun dispatch ->
-                    fs.register(fun msg -> Avalonia.Threading.Dispatcher.UIThread.Post(fun () -> DataTypes.UI.FileSystemMsg msg |> dispatch))
-                    fs.initialize();
-                    { new System.IDisposable with member this.Dispose() = ()}
+        let comp = Component(fun ctx ->
+            let augment f arg v = f arg v, Cmd.Empty
+            let init = init memory
+            let update = update (fs, engine)
+            let subscription model =
+                Sub.batch [
+                    [[], fun dispatch ->
+                        fs.register(fun msg -> Avalonia.Threading.Dispatcher.UIThread.Post(fun () -> DataTypes.UI.FileSystemMsg msg |> dispatch))
+                        fs.initialize();
+                        { new System.IDisposable with member this.Dispose() = ()}
+                        ]
                     ]
-                ]
+            let model, dispatch = ctx.useElmish (init, update, fun p -> p |> Program.withSubscription subscription)
+            view model dispatch
             )
-#if DEBUG
-        // |> Program.withConsoleTrace // Console trace becomes very hard to read actually
-#endif
-        |> Program.run
+        this.Content <- comp
 
 type App() =
     inherit Application()
