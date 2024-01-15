@@ -93,11 +93,12 @@ let tests =
                 (missingFile (sprintf @"foo\xibalba.trn should be added to model but found only %A"))
             fakeFileSystemWatcher.create @"blahblahblah\foo\xibalba.2h"
             Assert.soon
-                (hasFile "foo" "xibalba1")
-                (missingFile (sprintf @"foo\xibalba.2h should be added to model as xibalba1 but found only %A"))
+                (hasFile "foo" "xibalba")
+                (missingFile (sprintf @"foo\xibalba.2h should be added to model as xibalba but found only %A"))
 
-            Approve("foo", "xibalba1") |> dispatch
-            Assert.soon
-                (fun () -> fs.exclusions |> List.contains "foo_xibalba1" && fakeGameDir["foo_xibalba1"] |> List.containsAll ["xibalba.2h"; "ftherlnd"])
-                (fun () -> "New game directory should soon contain copies of all the 2h files and ftherlnd so we can execute, and should be marked as excluded so we don't try to copy it again")
+            Approve("foo", "xibalba") |> dispatch
+            for i in 1..3 do
+                Assert.soon
+                    (fun () -> fs.exclusions |> List.contains $"foo_xibalba_{i}" && fakeGameDir[$"foo_xibalba_{i}"] |> List.containsAll ["xibalba.2h"; "ftherlnd"])
+                    (fun () -> $"New game directory foo_xibalba_{i}should soon contain copies of all the 2h files and ftherlnd so we can execute, and should be marked as excluded so we don't try to copy it again")
             ]
