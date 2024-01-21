@@ -60,7 +60,7 @@ let justUnlocked (N, gameName: string, ordersName, game: Game) =
             permutationsOf [justApproved] otherNations
     [   for c in newCombinations do
             for ix in 1..N do
-                let getPermutationName (orders: GameFile list) = [gameName; yield! orders |> List.map _.Name; ix.ToString()] |> String.join "_"
+                let getPermutationName (orders: GameFile list) = [gameName; yield! orders |> List.map _.Name; ix.ToString()] |> String.join "_" |> fun s -> s.Trim().Replace(" ", "_")
                 { orders = c ; name = getPermutationName c }
         ]
 
