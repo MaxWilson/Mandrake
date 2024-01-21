@@ -9,6 +9,7 @@ open Avalonia.Layout
 open Thoth.Json.Net
 open Settings
 open Avalonia.FuncUI
+open Avalonia.FuncUI.DSL
 
 let saveMemory (memory: GlobalModel) =
     let json = Encode.Auto.toString memory
@@ -41,7 +42,7 @@ type Permutation = {
     orders: GameFile list
     }
 
-let justUnlocked (gameName: string, ordersName, game: Game) =
+let justUnlocked (N, gameName: string, ordersName, game: Game) =
     let justApproved = game.files |> List.find (function { detail = Orders { approved = true } } as file -> file.Name = ordersName | _ -> false)
     let trns = game.files |> List.filter (function { detail = Trn _ } -> true | _ -> false) |> Map.ofListBy (_.Nation >> Option.get)
     let approvedOrders = game.files |> List.filter (function { detail = Orders { approved = true } } -> true | _ -> false) |> Map.ofListBy (_.Nation >> Option.get)
@@ -58,7 +59,7 @@ let justUnlocked (gameName: string, ordersName, game: Game) =
                     approvedOrders[nation] |> List.collect (fun approvedOrder -> permutationsOf (approvedOrder :: accumulatedOrders) rest)
             permutationsOf [justApproved] otherNations
     [   for c in newCombinations do
-            for ix in 1..3 do
+            for ix in 1..N do
                 let getPermutationName (orders: GameFile list) = [gameName; yield! orders |> List.map _.Name; ix.ToString()] |> String.join "_"
                 { orders = c ; name = getPermutationName c }
         ]
@@ -68,9 +69,9 @@ let update (fs: FileSystem, ex:ExecutionEngine) msg model =
     | SaveAndCloseSettingsDialog settings ->
         { model with settings = settings }, Cmd.Empty
     | FileSystemMsg(NewGame(game)) ->
-        { model with games = Map.change game (Option.orElse (Some { name = game; files = []; children = [] })) model.games }, Cmd.Empty
+        { model with games = Map.change game (Option.orElse (Some (Game.create game))) model.games }, Cmd.Empty
     | FileSystemMsg(NewFile(game, path, nation, fileName, lastWriteTime)) ->
-        let game = model.games |> Map.tryFind game |> Option.defaultValue { name = game; files = []; children = [] }
+        let game = model.games |> Map.tryFind game |> Option.defaultValue (Game.create game)
         if game.files |> List.exists (fun f -> f.fileName = fileName && f.lastWriteTime = lastWriteTime) then model, Cmd.Empty // ignore the duplicate
         else
             let detail =
@@ -85,6 +86,10 @@ let update (fs: FileSystem, ex:ExecutionEngine) msg model =
                 // auto-approve if enabled
                 match file.detail with Orders _ when model.autoApprove -> Cmd.ofMsg (Approve(game.name, file.Name)) | _ -> Cmd.Empty
     | SetAutoApprove v -> { model with autoApprove = v }, Cmd.Empty
+    | ReplicationCountChange(gameName, v) ->
+        let game = model.games[gameName]
+        let game = { game with replicationCount = v }
+        { model with games = Map.add gameName game model.games }, Cmd.Empty
     | Approve(gameName, ordersName) ->
         let game = {
             model.games[gameName]
@@ -96,7 +101,7 @@ let update (fs: FileSystem, ex:ExecutionEngine) msg model =
                         | otherwise -> otherwise
                     )
             }
-        let queue = justUnlocked(gameName, ordersName, game)
+        let queue = justUnlocked(game.replicationCount, gameName, ordersName, game)
         let game = { game with children = queue |> List.map (fun permutation -> { name = permutation.name; status = NotStarted }) |> List.append game.children }
         let model = { model with games = Map.add gameName game model.games }
         model,
@@ -173,79 +178,93 @@ let viewGames (model: GlobalModel) dispatch : IView =
             Button.content $"Auto-Approve incoming orders: {model.autoApprove}"
             Button.onClick (fun _ -> dispatch (SetAutoApprove (not model.autoApprove)))
             ]
-        for game in model.games.Values do
+        let panel orientation children =
             StackPanel.create [
-                StackPanel.orientation Orientation.Vertical
-                StackPanel.children [
+                StackPanel.orientation orientation
+                StackPanel.children children
+                ]
+        for game in model.games.Values do
+            panel Orientation.Vertical [
+                TextBlock.create [
+                    TextBlock.classes ["subtitle"]
+                    TextBlock.text (game.name)
+                    ]
+                panel Orientation.Horizontal [
                     TextBlock.create [
-                        TextBlock.classes ["subtitle"]
-                        TextBlock.text (game.name)
-                        // TextBox.onTextChanged (fun txt -> exePath.Set (Some txt); exePathValid.Set ((String.IsNullOrWhiteSpace txt |> not) && File.Exists txt))
+                        TextBlock.text "Replication count"
                         ]
-                    for file in game.files do
-                        match file.detail with
-                        | Orders det ->
-                            StackPanel.create [
-                                StackPanel.orientation Orientation.Horizontal
-                                StackPanel.children [
-                                    if det.editing then
-                                        TextBox.create [
-                                            TextBox.text file.Name
-                                            TextBox.onTextChanged (fun txt -> dispatch (SetName(game.name, file.Name, txt)))
-                                            TextBox.onDoubleTapped(fun _ -> dispatch (SetEditingStatus(game.name, file.Name, false)))
-                                            TextBox.onKeyDown(fun e ->
-                                                if ["Return"; "Enter"] |> List.contains (e.Key.ToString()) then
-                                                    dispatch (SetEditingStatus(game.name, file.Name, false))
-                                                )
-                                            ]
-                                    else
-                                        TextBlock.create [
-                                            TextBlock.text (file.Name)
-                                            TextBlock.onDoubleTapped(fun _ -> dispatch (SetEditingStatus(game.name, file.Name, true)))
-                                            ]
+                    NumericUpDown.create [
+                        NumericUpDown.minimum 1
+                        NumericUpDown.watermark "Replication count"
+                        NumericUpDown.value game.replicationCount
+                        NumericUpDown.formatString "0"
+                        NumericUpDown.onValueChanged (fun v -> dispatch (ReplicationCountChange(game.name, System.Convert.ToInt32 v)))
+                        ]
+                    ]
+
+                for file in game.files do
+                    match file.detail with
+                    | Orders det ->
+                        StackPanel.create [
+                            StackPanel.orientation Orientation.Horizontal
+                            StackPanel.children [
+                                if det.editing then
+                                    TextBox.create [
+                                        TextBox.text file.Name
+                                        TextBox.onTextChanged (fun txt -> dispatch (SetName(game.name, file.Name, txt)))
+                                        TextBox.onDoubleTapped(fun _ -> dispatch (SetEditingStatus(game.name, file.Name, false)))
+                                        TextBox.onKeyDown(fun e ->
+                                            if ["Return"; "Enter"] |> List.contains (e.Key.ToString()) then
+                                                dispatch (SetEditingStatus(game.name, file.Name, false))
+                                            )
+                                        ]
+                                else
                                     TextBlock.create [
-                                        let age =
-                                            let elapsed = (System.DateTimeOffset.UtcNow - file.lastWriteTime)
-                                            if elapsed.TotalDays > 1 then $"{int elapsed.TotalDays} days ago"
-                                            elif elapsed.TotalHours > 1 then $"{int elapsed.TotalHours} hours ago"
-                                            elif elapsed.TotalMinutes > 1 then $"{int elapsed.TotalMinutes} minutes ago"
-                                            else $"just now"
-                                        TextBlock.text $" ({age})"
+                                        TextBlock.text (file.Name)
                                         TextBlock.onDoubleTapped(fun _ -> dispatch (SetEditingStatus(game.name, file.Name, true)))
                                         ]
-                                    if not det.approved then
-                                        let name = file.Name
-                                        Button.create [
-                                            Button.content $"Approve {name}"
-                                            Button.onClick(fun _ -> dispatch (Approve(game.name, name)))
-                                            ]
+                                TextBlock.create [
+                                    let age =
+                                        let elapsed = (System.DateTimeOffset.UtcNow - file.lastWriteTime)
+                                        if elapsed.TotalDays > 1 then $"{int elapsed.TotalDays} days ago"
+                                        elif elapsed.TotalHours > 1 then $"{int elapsed.TotalHours} hours ago"
+                                        elif elapsed.TotalMinutes > 1 then $"{int elapsed.TotalMinutes} minutes ago"
+                                        else $"just now"
+                                    TextBlock.text $" ({age})"
+                                    TextBlock.onDoubleTapped(fun _ -> dispatch (SetEditingStatus(game.name, file.Name, true)))
+                                    ]
+                                if not det.approved then
+                                    let name = file.Name
                                     Button.create [
-                                        let name = file.Name
-                                        Button.content $"Delete {name}"
-                                        Button.onClick(fun _ -> dispatch (DeleteOrders(game.name, name)))
+                                        Button.content $"Approve {name}"
+                                        Button.onClick(fun _ -> dispatch (Approve(game.name, name)))
                                         ]
+                                Button.create [
+                                    let name = file.Name
+                                    Button.content $"Delete {name}"
+                                    Button.onClick(fun _ -> dispatch (DeleteOrders(game.name, name)))
                                     ]
                                 ]
-                        | _ -> ()
-                    if game.children.Length > 0 then
-                        TextBlock.create [
-                            TextBlock.classes ["subtitle"]
-                            TextBlock.text "    Permutations"
                             ]
-                        for permutation in game.children do
-                            StackPanel.create [
-                                StackPanel.orientation Orientation.Horizontal
-                                StackPanel.children [
-                                    TextBlock.create [
-                                        TextBlock.text $"        {permutation.name}: {permutation.status}"
-                                        ]
-                                    Button.create [
-                                        Button.content $"Delete {permutation.name}"
-                                        Button.onClick (fun _ -> dispatch (DeletePermutation(game.name, permutation.name)))
-                                        ]
+                    | _ -> ()
+                if game.children.Length > 0 then
+                    TextBlock.create [
+                        TextBlock.classes ["subtitle"]
+                        TextBlock.text "    Permutations"
+                        ]
+                    for permutation in game.children do
+                        StackPanel.create [
+                            StackPanel.orientation Orientation.Horizontal
+                            StackPanel.children [
+                                TextBlock.create [
+                                    TextBlock.text $"        {permutation.name}: {permutation.status}"
+                                    ]
+                                Button.create [
+                                    Button.content $"Delete {permutation.name}"
+                                    Button.onClick (fun _ -> dispatch (DeletePermutation(game.name, permutation.name)))
                                     ]
                                 ]
-                    ]
+                            ]
                 ]
         ]
 

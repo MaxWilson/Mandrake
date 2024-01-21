@@ -81,9 +81,12 @@ module UI =
         }
     type Game = {
         name: string
+        replicationCount: int
         files: GameFile list
         children: Permutation list
         }
+        with
+        static member create name = { name = name; replicationCount = 3; files = []; children = [] }
     type 't Validated = Valid of 't | Invalid of string option
         with
         member this.validValue = match this with Valid v -> v | Invalid _ -> shouldntHappen "You should only call validValue if you already know it's a valid value"
@@ -116,6 +119,7 @@ module UI =
         | FileSystemMsg of FileSystemMsg
         | SetAutoApprove of bool
         | Approve of gameName: string * ordersName: string
+        | ReplicationCountChange of gameName: string * replicationCount: int
         | DeleteOrders of gameName: string * ordersName: string
         | SetName of gameName: string * ordersName: string * name: string
         | SetEditingStatus of gameName: string * ordersName: string * editing: bool
