@@ -31,7 +31,7 @@ type MainWindow() as this =
                         copyBack,
                         deleteByGameName,
                         fun this ->
-                            match Settings.dom5Saves with
+                            match Settings.userDataDirectory with
                             | None -> () // delay initialization until we have somewhere to watch
                             | Some path ->
                                 Dom5.setupNewWatcher path (debounce this.New, debounce this.Updated)

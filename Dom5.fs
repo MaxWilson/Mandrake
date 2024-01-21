@@ -68,13 +68,13 @@ let copyIfNewer (src, dest) =
         if srcInfo.LastWriteTime > destInfo.LastWriteTime then
             robustCopy src dest
 let copyBack (gameName: string, src: FullPath, destfileName: string) =
-    if Settings.dom5Saves.IsNone then shouldntHappen "dom5Path should have already been set"
-    let dest = Path.Combine(Settings.dom5Saves.Value, gameName, destfileName)
+    if Settings.userDataDirectory.IsNone then shouldntHappen "dom5Path should have already been set"
+    let dest = Path.Combine(Settings.userDataDirectory.Value, gameName, destfileName)
     robustCopy src dest
 
 let deleteByGameName (gameName: string) =
-    if Settings.dom5Saves.IsNone then shouldntHappen "dom5Path should have already been set"
-    let path = Path.Combine(Settings.dom5Saves.Value, gameName)
+    if Settings.userDataDirectory.IsNone then shouldntHappen "dom5Path should have already been set"
+    let path = Path.Combine(Settings.userDataDirectory.Value, gameName)
     if Directory.Exists path then
         Directory.Delete(path, true) |> ignore
 

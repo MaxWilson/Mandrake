@@ -9,7 +9,7 @@ open Avalonia.Layout
 open Thoth.Json.Net
 open Settings
 
-let saveMemory (memory: Model) =
+let saveMemory (memory: GlobalModel) =
     let json = Encode.Auto.toString memory
     if not (System.IO.Directory.Exists appStateDir) then
         System.IO.Directory.CreateDirectory appStateDir |> ignore
@@ -20,7 +20,7 @@ let tryLoadMemory() =
         logM "Reading memory from" appStatePath
         if System.IO.File.Exists(appStatePath) then
             let json = System.IO.File.ReadAllText appStatePath
-            match Decode.Auto.fromString<Model> json with
+            match Decode.Auto.fromString<GlobalModel> json with
             | Ok model -> Some model
             | Result.Error err ->
                 log $"Error loading mandrake.json: {err}"
@@ -30,7 +30,7 @@ let tryLoadMemory() =
         log $"Error loading mandrake.json: {exn}"
         None
 
-let init memory () = (defaultArg memory Model.fresh), Cmd.Empty
+let init memory () = (defaultArg memory GlobalModel.fresh), Cmd.Empty
 
 type Permutation = {
     name: string
@@ -60,28 +60,30 @@ let justUnlocked (gameName: string, ordersName, game: Game) =
         ]
 
 module Settings =
+    let validWhen (predicate: 't -> bool) (value: 't) =
+        if predicate value then Valid value else Invalid None
+
     let validate (model: SettingsModel) =
-        let validExePath = notImpl()
         match model.dominionsExePath, model.userDataDirectoryPath with
-        | None, _ | _, None -> false
-        | Some userDataPath, Some exePath ->
-            let isValidUserDataDirectoryPath =  System.IO.Directory.Exists (Path.Combine(userDataPath, "savedgames"))
-            let isValidExePath = System.IO.File.Exists exePath
-            isValidUserDataDirectoryPath && isValidExePath
+        | Valid userDataPath, Valid exePath -> true
+        | _ -> false
 
     let saveSynchronously (fs: FileSystem) (model: SettingsModel) =
         if not (validate model) then shouldntHappen "Should validate model on the settings page, before allowing user to click the save button"
-        dom5Path <- model.dominionsExePath
-        dom5Saves <- model.userDataDirectoryPath
-        saveFileSettings()
-        fs.initialize()
+        if dom5Path = Some model.dominionsExePath.validValue && userDataDirectory = Some model.userDataDirectoryPath.validValue then () // no changes
+        else
+            dom5Path <- Some model.dominionsExePath.validValue
+            userDataDirectory <- Some model.userDataDirectoryPath.validValue
+            saveFileSettings()
+            fs.initialize()
 
     let update msg (model: SettingsModel) =
         match msg with
         | DomExePathChanged path ->
-            { model with dominionsExePath = Some path }
+            { model with dominionsExePath = validWhen System.IO.File.Exists path }
         | UserDataDirectoryPathChanged path ->
-            { model with userDataDirectoryPath = Some path }
+            { model with userDataDirectoryPath = validWhen (fun userDataPath -> System.IO.Directory.Exists (Path.Combine(userDataPath, "savedgames"))) path }
+
     let cmdSaveAndCloseSettings fs settings dispatch =
         if not (validate settings) then shouldntHappen "Should validate model on the settings page, before allowing user to click the save button"
         backgroundTask { saveSynchronously fs settings; dispatch (SaveAndCloseSettingsDialog settings) }
@@ -179,7 +181,7 @@ let update (fs: FileSystem, ex:ExecutionEngine) msg model =
             backgroundTask { saveMemory model; fs.Delete permutationName } |> ignore
             model, Cmd.Empty
 
-let viewGames (model: Model) dispatch : IView =
+let viewGames (model: GlobalModel) dispatch : IView =
     let stack content =
         ScrollViewer.create [
             ScrollViewer.content (
@@ -272,46 +274,41 @@ let viewGames (model: Model) dispatch : IView =
                 ]
         ]
 
-let viewSettings (model: SettingsModel) dispatch =
-        StackPanel.create [
-            StackPanel.children [
-                TextBlock.create [
-                    TextBlock.classes ["title"]
-                    TextBlock.text $"Setup"
-                    ]
-                TextBlock.create [
-                    TextBlock.classes ["subtitle"]
-                    TextBlock.text $@"Path to Dominions executable, e.g. C:\usr\bin\steam\steamapps\common\Dominions5\win64\dominions5.exe"
-                    ]
-                TextBox.create [
-                    TextBlock.classes [if model.pendingDom5ExePathIsValid then "valid" else "invalid"]
-                    TextBox.text (dom5Path |> Option.defaultValue "")
-                    TextBox.onTextChanged (fun txt -> dispatch (Dom5ExePathChanged txt))
-                    ]
-                Button.create [
-                    Button.content "OK"
-                    Button.isEnabled (model.pendingDom5ExePathIsValid && model.pendingDom5ExePath <> dom5Path)
-                    Button.onClick (fun _ -> dispatch Dom5ExePathAccept)
-                    ]
-                TextBlock.create [
-                    TextBlock.classes ["subtitle"]
-                    TextBlock.text $@"Path to saved games folder, e.g. C:\Users\<userName>\AppData\Roaming\Dominions5\savedGames"
-                    ]
-                TextBox.create [
-                    TextBlock.classes [if model.pendingDom5SavesPathIsValid then "valid" else "invalid"]
-                    TextBox.text (dom5Saves |> Option.defaultValue "")
-                    TextBox.onTextChanged (fun txt -> dispatch (Dom5SavesPathChanged txt))
-                    ]
-                Button.create [
-                    Button.content "OK"
-                    Button.isEnabled (model.pendingDom5SavesPathIsValid && model.pendingDom5SavesPath <> dom5Saves)
-                    Button.onClick (fun _ -> dispatch Dom5SavesPathAccept)
-                    ]
+let viewSettings (model: SettingsModel) (dispatch: GlobalMsg -> _) =
+    StackPanel.create [
+        StackPanel.children [
+            TextBlock.create [
+                TextBlock.classes ["title"]
+                TextBlock.text $"Setup"
+                ]
+            TextBlock.create [
+                TextBlock.classes ["subtitle"]
+                TextBlock.text $@"Path to Dominions executable, e.g. C:\usr\bin\steam\steamapps\common\Dominions5\win64\dominions5.exe"
+                ]
+            TextBox.create [
+                TextBlock.classes [if model.dominionsExePath.isValid then "valid" else "invalid"]
+                TextBox.text (dom5Path |> Option.defaultValue "")
+                TextBox.onTextChanged (fun txt -> dispatch (DomExePathChanged txt))
+                ]
+            TextBlock.create [
+                TextBlock.classes ["subtitle"]
+                TextBlock.text $@"Path to saved games folder, e.g. C:\Users\<userName>\AppData\Roaming\Dominions5\savedGames"
+                ]
+            TextBox.create [
+                TextBlock.classes [if model.userDataDirectoryPath.isValid then "valid" else "invalid"]
+                TextBox.text (userDataDirectory |> Option.defaultValue "")
+                TextBox.onTextChanged (fun txt -> dispatch (UserDataDirectoryPathChanged txt))
+                ]
+            Button.create [
+                Button.content (match model.dominionsExePath with Valid exePath when Some exePath = dom5Path -> "OK (no changes)" | _ -> "Save and close")
+                Button.isEnabled (match model.dominionsExePath with Valid path -> true | _ -> false)
+                Button.onClick (fun _ -> dispatch (SaveAndCloseSettingsDialog model))
                 ]
             ]
+        ]
 
-let view (model:Model) dispatch =
-    if dom5Path.IsSome && dom5Saves.IsSome then
+let view (model:GlobalModel) dispatch =
+    if dom5Path.IsSome && userDataDirectory.IsSome then
         viewGames model dispatch
     else
         viewSettings model.settings dispatch

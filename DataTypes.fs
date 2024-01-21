@@ -84,22 +84,26 @@ module UI =
         files: GameFile list
         children: Permutation list
         }
+    type 't Validated = Valid of 't | Invalid of string option
+        with
+        member this.validValue = match this with Valid v -> v | Invalid _ -> shouldntHappen "You should only call validValue if you already know it's a valid value"
+        member this.isValid = match this with Valid _ -> true | Invalid _ -> false
     type SettingsModel = {
-        dominionsExePath: FullPath option
-        userDataDirectoryPath: FullPath option
+        dominionsExePath: FullPath Validated
+        userDataDirectoryPath: FullPath Validated
         }
         with
         static member fresh: SettingsModel = {
-            dominionsExePath = None
-            userDataDirectoryPath = None
+            dominionsExePath = Invalid None
+            userDataDirectoryPath = Invalid None
             }
-    type Model = {
+    type GlobalModel = {
         games: Map<string, Game>
         autoApprove: bool
         settings: SettingsModel
         }
         with
-        static member fresh: Model = {
+        static member fresh: GlobalModel = {
             games = Map.empty
             autoApprove = false
             settings = SettingsModel.fresh
@@ -107,7 +111,7 @@ module UI =
     type SettingsMsg =
         | UserDataDirectoryPathChanged of string
         | DomExePathChanged of string // reinitialize fileSystemWatcher!
-    type Msg =
+    type GlobalMsg =
         | SaveAndCloseSettingsDialog of SettingsModel
         | FileSystemMsg of FileSystemMsg
         | SetAutoApprove of bool
