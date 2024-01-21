@@ -8,6 +8,7 @@ open DataTypes.UI
 open Avalonia.Layout
 open Thoth.Json.Net
 open Settings
+open Avalonia.FuncUI
 
 let saveMemory (memory: GlobalModel) =
     let json = Encode.Auto.toString memory
@@ -76,13 +77,14 @@ module Settings =
             userDataDirectory <- Some model.userDataDirectoryPath.validValue
             saveFileSettings()
             fs.initialize()
+    let init _ = SettingsModel.fresh, Cmd.Empty
 
     let update msg (model: SettingsModel) =
         match msg with
         | DomExePathChanged path ->
-            { model with dominionsExePath = validWhen System.IO.File.Exists path }
+            { model with dominionsExePath = validWhen System.IO.File.Exists path }, Cmd.Empty
         | UserDataDirectoryPathChanged path ->
-            { model with userDataDirectoryPath = validWhen (fun userDataPath -> System.IO.Directory.Exists (Path.Combine(userDataPath, "savedgames"))) path }
+            { model with userDataDirectoryPath = validWhen (fun userDataPath -> System.IO.Directory.Exists (Path.Combine(userDataPath, "savedgames"))) path }, Cmd.Empty
 
     let cmdSaveAndCloseSettings fs settings dispatch =
         if not (validate settings) then shouldntHappen "Should validate model on the settings page, before allowing user to click the save button"
@@ -274,38 +276,42 @@ let viewGames (model: GlobalModel) dispatch : IView =
                 ]
         ]
 
-let viewSettings (model: SettingsModel) (dispatch: GlobalMsg -> _) =
-    StackPanel.create [
-        StackPanel.children [
-            TextBlock.create [
-                TextBlock.classes ["title"]
-                TextBlock.text $"Setup"
-                ]
-            TextBlock.create [
-                TextBlock.classes ["subtitle"]
-                TextBlock.text $@"Path to Dominions executable, e.g. C:\usr\bin\steam\steamapps\common\Dominions5\win64\dominions5.exe"
-                ]
-            TextBox.create [
-                TextBlock.classes [if model.dominionsExePath.isValid then "valid" else "invalid"]
-                TextBox.text (dom5Path |> Option.defaultValue "")
-                TextBox.onTextChanged (fun txt -> dispatch (DomExePathChanged txt))
-                ]
-            TextBlock.create [
-                TextBlock.classes ["subtitle"]
-                TextBlock.text $@"Path to saved games folder, e.g. C:\Users\<userName>\AppData\Roaming\Dominions5\savedGames"
-                ]
-            TextBox.create [
-                TextBlock.classes [if model.userDataDirectoryPath.isValid then "valid" else "invalid"]
-                TextBox.text (userDataDirectory |> Option.defaultValue "")
-                TextBox.onTextChanged (fun txt -> dispatch (UserDataDirectoryPathChanged txt))
-                ]
-            Button.create [
-                Button.content (match model.dominionsExePath with Valid exePath when Some exePath = dom5Path -> "OK (no changes)" | _ -> "Save and close")
-                Button.isEnabled (match model.dominionsExePath with Valid path -> true | _ -> false)
-                Button.onClick (fun _ -> dispatch (SaveAndCloseSettingsDialog model))
+open Avalonia.FuncUI.Elmish.ElmishHook
+let viewSettings (model: SettingsModel) (parentDispatch: GlobalMsg -> _) : IView =
+    Component(fun ctx ->
+        let model, dispatch = ctx.useElmish((fun _ -> SettingsModel.fresh, Cmd.Empty), Settings.update)
+        StackPanel.create [
+            StackPanel.children [
+                TextBlock.create [
+                    TextBlock.classes ["title"]
+                    TextBlock.text $"Setup"
+                    ]
+                TextBlock.create [
+                    TextBlock.classes ["subtitle"]
+                    TextBlock.text $@"Path to Dominions executable, e.g. C:\usr\bin\steam\steamapps\common\Dominions5\win64\dominions5.exe"
+                    ]
+                TextBox.create [
+                    TextBlock.classes [if model.dominionsExePath.isValid then "valid" else "invalid"]
+                    TextBox.text (dom5Path |> Option.defaultValue "")
+                    TextBox.onTextChanged (fun txt -> dispatch (DomExePathChanged txt))
+                    ]
+                TextBlock.create [
+                    TextBlock.classes ["subtitle"]
+                    TextBlock.text $@"Path to saved games folder, e.g. C:\Users\<userName>\AppData\Roaming\Dominions5\savedGames"
+                    ]
+                TextBox.create [
+                    TextBlock.classes [if model.userDataDirectoryPath.isValid then "valid" else "invalid"]
+                    TextBox.text (userDataDirectory |> Option.defaultValue "")
+                    TextBox.onTextChanged (fun txt -> dispatch (UserDataDirectoryPathChanged txt))
+                    ]
+                Button.create [
+                    Button.content (match model.dominionsExePath with Valid exePath when Some exePath = dom5Path -> "OK (no changes)" | _ -> "Save and close")
+                    Button.isEnabled (match model.dominionsExePath with Valid path -> true | _ -> false)
+                    Button.onClick (fun _ -> parentDispatch (SaveAndCloseSettingsDialog model))
+                    ]
                 ]
             ]
-        ]
+        )
 
 let view (model:GlobalModel) dispatch =
     if dom5Path.IsSome && userDataDirectory.IsSome then
