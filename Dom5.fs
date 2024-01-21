@@ -57,16 +57,17 @@ let robustCopy (src:FullPath) (dest:FullPath) =
             }
     if File.equivalent src dest then
         // nothing to do
-        ()
+        Task.FromResult ()
     else
         attempt 100
-        |> fun t -> t.Wait()
 let copyIfNewer (src, dest) =
     if System.IO.File.Exists src then
         let srcInfo = System.IO.FileInfo(src)
         let destInfo = System.IO.FileInfo(dest)
         if srcInfo.LastWriteTime > destInfo.LastWriteTime then
             robustCopy src dest
+        else Task.FromResult ()
+    else Task.FromResult ()
 let copyBack (gameName: string, src: FullPath, destfileName: string) =
     if Settings.userDataDirectory.IsNone then shouldntHappen "dom5Path should have already been set"
     let dest = Path.Combine(Settings.userDataDirectory.Value, "savedgames", gameName, destfileName)

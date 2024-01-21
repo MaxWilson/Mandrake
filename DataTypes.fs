@@ -1,5 +1,6 @@
 [<AutoOpen>]
 module DataTypes
+open System.Threading.Tasks
 
 type FullPath = string
 type DirectoryPath = string
@@ -10,7 +11,7 @@ type FileSystemMsg =
 
 type Path = System.IO.Path
 
-type FileSystem(getTempFilePath, copy: FullPath * FullPath -> unit, copyBack: string * FullPath * string -> unit, deleteByGameName: string -> unit, initialize: _ -> unit) =
+type FileSystem(getTempFilePath, copy: FullPath * FullPath -> unit Task, copyBack: string * FullPath * string -> unit Task, deleteByGameName: string -> unit, initialize: _ -> unit) =
     let mutable excludedDirectories = []
     let mutable listeners = []
     let dispatch msg = for dispatch in listeners do dispatch msg
@@ -28,7 +29,7 @@ type FileSystem(getTempFilePath, copy: FullPath * FullPath -> unit, copyBack: st
             let nation = Path.GetFileNameWithoutExtension path
             let fileDest, isNewGame = getTempFilePath gameName path
 
-            copy (path, fileDest)
+            (copy (path, fileDest)).Wait()
             if isNewGame then
                 dispatch (NewGame(gameName))
 
@@ -41,7 +42,7 @@ type FileSystem(getTempFilePath, copy: FullPath * FullPath -> unit, copyBack: st
             let nation = Path.GetFileNameWithoutExtension path
             let fileDest, isNewGame = getTempFilePath gameName path
 
-            copy (path, fileDest)
+            (copy (path, fileDest)).Wait()
 
             // inform the model that a new version just came in
             dispatch (NewFile(gameName, fileDest, nation, fileName, System.IO.FileInfo(path).LastWriteTimeUtc |> System.DateTimeOffset))

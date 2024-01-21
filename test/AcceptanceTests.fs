@@ -3,6 +3,7 @@ module Test
 open Expecto
 open DataTypes.UI
 open UI.Main
+open System.Threading.Tasks
 
 // assertion for asynchronous testing
 module Assert =
@@ -58,7 +59,10 @@ let tests =
                     // in this case we completely ignore the incoming path because everything we need has been faked into the dest argument
                     let path, dest = Path.GetFileName dest, Path.GetDirectoryName dest
                     fakeTempDir <- fakeTempDir |> Map.addMulti dest path
-                let copyBack (gameName, src: FullPath, destFileName) = fakeGameDir <- fakeGameDir |> Map.addMulti gameName (Path.GetFileName src)
+                    Task.FromResult ()
+                let copyBack (gameName, src: FullPath, destFileName) =
+                    fakeGameDir <- fakeGameDir |> Map.addMulti gameName (Path.GetFileName src)
+                    Task.FromResult ()
                 FileSystem(
                     (fun gameName path -> Path.Combine(gameName, Path.GetFileName path), true), // always pretend to be new, and create a path name that looks like a plausible path but can also be easily parsed by fakeCopy
                     fakeCopy,
