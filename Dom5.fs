@@ -113,9 +113,9 @@ open System.Diagnostics
 /// run C:\usr\bin\steam\steamapps\common\Dominions5\win64\dominions5.exe  -T -g <name> --host, see https://www.illwinter.com/dom5/techmanual.html#network-options for details
 let hostDom5 (gameName:string) = backgroundTask {
     use proc = new Process()
-    log $"""About to execute {dom5Path} -T -g {gameName} --host"""
-    if dom5Path.IsNone then shouldntHappen "dom5Path should have already been set"
-    proc.StartInfo.FileName <- dom5Path.Value
+    log $"""About to execute {domExePath} -T -g {gameName} --host"""
+    if domExePath.IsNone then shouldntHappen "dom5Path should have already been set"
+    proc.StartInfo.FileName <- domExePath.Value
     proc.StartInfo.Arguments <- $"-T -g {gameName} --host"
     proc.StartInfo.UseShellExecute <- false
     proc.StartInfo.RedirectStandardOutput <- true

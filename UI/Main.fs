@@ -60,36 +60,6 @@ let justUnlocked (gameName: string, ordersName, game: Game) =
                 { orders = c ; name = getPermutationName c }
         ]
 
-module Settings =
-    let validWhen (predicate: 't -> bool) (value: 't) =
-        if predicate value then Valid value else Invalid None
-
-    let validate (model: SettingsModel) =
-        match model.dominionsExePath, model.userDataDirectoryPath with
-        | Valid userDataPath, Valid exePath -> true
-        | _ -> false
-
-    let saveSynchronously (fs: FileSystem) (model: SettingsModel) =
-        if not (validate model) then shouldntHappen "Should validate model on the settings page, before allowing user to click the save button"
-        if dom5Path = Some model.dominionsExePath.validValue && userDataDirectory = Some model.userDataDirectoryPath.validValue then () // no changes
-        else
-            dom5Path <- Some model.dominionsExePath.validValue
-            userDataDirectory <- Some model.userDataDirectoryPath.validValue
-            saveFileSettings()
-            fs.initialize()
-    let init _ = SettingsModel.fresh, Cmd.Empty
-
-    let update msg (model: SettingsModel) =
-        match msg with
-        | DomExePathChanged path ->
-            { model with dominionsExePath = validWhen System.IO.File.Exists path }, Cmd.Empty
-        | UserDataDirectoryPathChanged path ->
-            { model with userDataDirectoryPath = validWhen (fun userDataPath -> System.IO.Directory.Exists (Path.Combine(userDataPath, "savedgames"))) path }, Cmd.Empty
-
-    let cmdSaveAndCloseSettings fs settings dispatch =
-        if not (validate settings) then shouldntHappen "Should validate model on the settings page, before allowing user to click the save button"
-        backgroundTask { saveSynchronously fs settings; dispatch (SaveAndCloseSettingsDialog settings) }
-
 let update (fs: FileSystem, ex:ExecutionEngine) msg model =
     match msg with
     | SaveAndCloseSettingsDialog settings ->
@@ -276,45 +246,10 @@ let viewGames (model: GlobalModel) dispatch : IView =
                 ]
         ]
 
-open Avalonia.FuncUI.Elmish.ElmishHook
-let viewSettings (model: SettingsModel) (parentDispatch: GlobalMsg -> _) : IView =
-    Component(fun ctx ->
-        let model, dispatch = ctx.useElmish((fun _ -> SettingsModel.fresh, Cmd.Empty), Settings.update)
-        StackPanel.create [
-            StackPanel.children [
-                TextBlock.create [
-                    TextBlock.classes ["title"]
-                    TextBlock.text $"Setup"
-                    ]
-                TextBlock.create [
-                    TextBlock.classes ["subtitle"]
-                    TextBlock.text $@"Path to Dominions executable, e.g. C:\usr\bin\steam\steamapps\common\Dominions5\win64\dominions5.exe"
-                    ]
-                TextBox.create [
-                    TextBlock.classes [if model.dominionsExePath.isValid then "valid" else "invalid"]
-                    TextBox.text (dom5Path |> Option.defaultValue "")
-                    TextBox.onTextChanged (fun txt -> dispatch (DomExePathChanged txt))
-                    ]
-                TextBlock.create [
-                    TextBlock.classes ["subtitle"]
-                    TextBlock.text $@"Path to saved games folder, e.g. C:\Users\<userName>\AppData\Roaming\Dominions5\savedGames"
-                    ]
-                TextBox.create [
-                    TextBlock.classes [if model.userDataDirectoryPath.isValid then "valid" else "invalid"]
-                    TextBox.text (userDataDirectory |> Option.defaultValue "")
-                    TextBox.onTextChanged (fun txt -> dispatch (UserDataDirectoryPathChanged txt))
-                    ]
-                Button.create [
-                    Button.content (match model.dominionsExePath with Valid exePath when Some exePath = dom5Path -> "OK (no changes)" | _ -> "Save and close")
-                    Button.isEnabled (match model.dominionsExePath with Valid path -> true | _ -> false)
-                    Button.onClick (fun _ -> parentDispatch (SaveAndCloseSettingsDialog model))
-                    ]
-                ]
-            ]
-        )
 
-let view (model:GlobalModel) dispatch =
-    if dom5Path.IsSome && userDataDirectory.IsSome then
+
+let view fs (model:GlobalModel) dispatch =
+    if domExePath.IsSome && userDataDirectory.IsSome then
         viewGames model dispatch
     else
-        viewSettings model.settings dispatch
+        viewSettings (Settings.cmdSaveAndCloseSettings fs dispatch)

@@ -14,40 +14,69 @@ open Avalonia.FuncUI.Types
 open Avalonia.FuncUI.Elmish
 open Settings
 open System.IO
+open Avalonia.FuncUI.Elmish.ElmishHook
 
-type Signals = {
-    ok: FileSettings -> unit
-    }
+let validWhen (predicate: 't -> bool) (value: 't) =
+    if predicate value then Valid value else Invalid None
 
-// This component is simple, don't bother with elmishness
-let view (signals: Signals, settings: FileSettings) = Component.create("Settings", fun ctx ->
-    let exePath = ctx.useState settings.exePath
-    let exePathValid = ctx.useState (settings.exePath.IsSome && File.Exists settings.exePath.Value)
-    let dataDir = ctx.useState settings.dataDirectory
-    let dataDirValid = ctx.useState (settings.dataDirectory.IsSome && File.Exists settings.dataDirectory.Value)
-    View.StackPanel [
-        TextBlock.create [
-            TextBlock.classes ["title"]
-            TextBlock.text $"Path to Dominion5.exe"
-            ]
-        TextBox.create [
-            TextBox.classes [if exePathValid.Current then "valid" else "invalid"]
-            TextBox.text (defaultArg exePath.Current emptyString)
-            TextBox.onTextChanged (fun txt -> exePath.Set (Some txt); exePathValid.Set ((String.IsNullOrWhiteSpace txt |> not) && File.Exists txt))
-            ]
-        TextBlock.create [
-            TextBlock.classes ["title"]
-            TextBlock.text $"Path to Dominion5 data directory"
-            ]
-        TextBox.create [
-            TextBox.classes [if dataDirValid.Current then "valid" else "invalid"]
-            TextBox.text (defaultArg dataDir.Current emptyString)
-            TextBox.onTextChanged (fun txt -> dataDir.Set (Some txt); dataDirValid.Set ((String.IsNullOrWhiteSpace txt |> not) && Directory.Exists txt))
-            ]
-        if exePathValid.Current && dataDirValid.Current then
-            Button.create [
-                Button.content "OK"
-                Button.onClick (fun _ -> signals.ok { exePath = exePath.Current; dataDirectory = dataDir.Current })
+let validate (model: SettingsModel) =
+    match model.dominionsExePath, model.userDataDirectoryPath with
+    | Valid userDataPath, Valid exePath -> true
+    | _ -> false
+
+let saveSynchronously (fs: FileSystem) (model: SettingsModel) =
+    if not (validate model) then shouldntHappen "Should validate model on the settings page, before allowing user to click the save button"
+    if domExePath = Some model.dominionsExePath.validValue && userDataDirectory = Some model.userDataDirectoryPath.validValue then () // no changes
+    else
+        domExePath <- Some model.dominionsExePath.validValue
+        userDataDirectory <- Some model.userDataDirectoryPath.validValue
+        saveFileSettings()
+        fs.initialize()
+let init _ = SettingsModel.fresh, Cmd.Empty
+
+let update msg (model: SettingsModel) =
+    match msg with
+    | DomExePathChanged path ->
+        { model with dominionsExePath = validWhen System.IO.File.Exists path }, Cmd.Empty
+    | UserDataDirectoryPathChanged path ->
+        { model with userDataDirectoryPath = validWhen (fun userDataPath -> System.IO.Directory.Exists (Path.Combine(userDataPath, "savedgames"))) path }, Cmd.Empty
+
+let cmdSaveAndCloseSettings fs dispatch settings _ =
+    if not (validate settings) then shouldntHappen "Should validate model on the settings page, before allowing user to click the save button"
+    backgroundTask { saveSynchronously fs settings; dispatch (SaveAndCloseSettingsDialog settings) }
+
+let viewSettings cmdSaveAndClose : IView =
+    Component.create("settings", fun ctx ->
+        let model, dispatch = ctx.useElmish((fun _ -> SettingsModel.fresh, Cmd.Empty), update)
+        StackPanel.create [
+            StackPanel.children [
+                TextBlock.create [
+                    TextBlock.classes ["title"]
+                    TextBlock.text $"Setup"
+                    ]
+                TextBlock.create [
+                    TextBlock.classes ["subtitle"]
+                    TextBlock.text $@"Path to Dominions executable, e.g. c:\usr\bin\steam\steamapps\common\Dominions6\Dominions6.exe"
+                    ]
+                TextBox.create [
+                    TextBlock.classes [if model.dominionsExePath.isValid then "valid" else "invalid"]
+                    TextBox.text (domExePath |> Option.defaultValue "")
+                    TextBox.onTextChanged (fun txt -> dispatch (DomExePathChanged txt))
+                    ]
+                TextBlock.create [
+                    TextBlock.classes ["subtitle"]
+                    TextBlock.text $@"Path to user data directory, e.g. C:\Users\<userName>\AppData\Roaming\Dominions5"
+                    ]
+                TextBox.create [
+                    TextBlock.classes [if model.userDataDirectoryPath.isValid then "valid" else "invalid"]
+                    TextBox.text (userDataDirectory |> Option.defaultValue "")
+                    TextBox.onTextChanged (fun txt -> dispatch (UserDataDirectoryPathChanged txt))
+                    ]
+                Button.create [
+                    Button.content (match model.dominionsExePath, model.userDataDirectoryPath with Valid exePath, Valid userData when Some exePath = domExePath && Some userData = userDataDirectory -> "OK (no changes)" | _ -> "Save and close")
+                    Button.isEnabled (match model.dominionsExePath with Valid path -> true | _ -> false)
+                    Button.onClick (cmdSaveAndClose model >> ignore)
+                    ]
                 ]
-        ]
-    )
+            ]
+        )

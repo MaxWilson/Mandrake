@@ -57,7 +57,7 @@ type MainWindow() as this =
                         ]
                     ]
             let model, dispatch = ctx.useElmish (init, update, fun p -> p |> Program.withSubscription subscription)
-            view model dispatch
+            view fs model dispatch
             )
         this.Content <- comp
 
