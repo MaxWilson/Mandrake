@@ -75,7 +75,7 @@ let copyBack (gameName: string, src: FullPath, destfileName: string) =
 
 let deleteByGameName (gameName: string) =
     if Settings.userDataDirectory.IsNone then shouldntHappen "dom5Path should have already been set"
-    let path = Path.Combine(Settings.userDataDirectory.Value, gameName)
+    let path = Path.Combine(Settings.userDataDirectory.Value, "savedgames", gameName)
     if Directory.Exists path then
         Directory.Delete(path, true) |> ignore
 
