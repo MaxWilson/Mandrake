@@ -1,6 +1,6 @@
 # Mandrake
 
-Mandrake is a simple GUI-based app designed to speed up testing battles in Dominions 5.
+Mandrake is a simple GUI-based app designed to speed up testing battles in Dominions 5 and 6.
 
 Essentially, you start Mandrake.exe, enter the information it asks for so it knows what folders
 to watch, and then leave it running while you start a multiplayer Dominions game against 

@@ -84,28 +84,31 @@ module UI =
         files: GameFile list
         children: Permutation list
         }
+    type SettingsModel = {
+        dominionsExePath: FullPath option
+        userDataDirectoryPath: FullPath option
+        }
+        with
+        static member fresh: SettingsModel = {
+            dominionsExePath = None
+            userDataDirectoryPath = None
+            }
     type Model = {
         games: Map<string, Game>
         autoApprove: bool
-        pendingDom5ExePath: string option
-        pendingDom5ExePathIsValid: bool
-        pendingDom5SavesPath: string option
-        pendingDom5SavesPathIsValid: bool
+        settings: SettingsModel
         }
         with
         static member fresh: Model = {
             games = Map.empty
             autoApprove = false
-            pendingDom5ExePath = None
-            pendingDom5ExePathIsValid = false
-            pendingDom5SavesPath = None
-            pendingDom5SavesPathIsValid = false
+            settings = SettingsModel.fresh
             }
+    type SettingsMsg =
+        | UserDataDirectoryPathChanged of string
+        | DomExePathChanged of string // reinitialize fileSystemWatcher!
     type Msg =
-        | Dom5SavesPathChanged of string
-        | Dom5ExePathChanged of string // reinitialize fileSystemWatcher!
-        | Dom5SavesPathAccept
-        | Dom5ExePathAccept
+        | SaveAndCloseSettingsDialog of SettingsModel
         | FileSystemMsg of FileSystemMsg
         | SetAutoApprove of bool
         | Approve of gameName: string * ordersName: string

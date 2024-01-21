@@ -59,26 +59,37 @@ let justUnlocked (gameName: string, ordersName, game: Game) =
                 { orders = c ; name = getPermutationName c }
         ]
 
+module Settings =
+    let validate (model: SettingsModel) =
+        let validExePath = notImpl()
+        match model.dominionsExePath, model.userDataDirectoryPath with
+        | None, _ | _, None -> false
+        | Some userDataPath, Some exePath ->
+            let isValidUserDataDirectoryPath =  System.IO.Directory.Exists (Path.Combine(userDataPath, "savedgames"))
+            let isValidExePath = System.IO.File.Exists exePath
+            isValidUserDataDirectoryPath && isValidExePath
+
+    let saveSynchronously (fs: FileSystem) (model: SettingsModel) =
+        if not (validate model) then shouldntHappen "Should validate model on the settings page, before allowing user to click the save button"
+        dom5Path <- model.dominionsExePath
+        dom5Saves <- model.userDataDirectoryPath
+        saveFileSettings()
+        fs.initialize()
+
+    let update msg (model: SettingsModel) =
+        match msg with
+        | DomExePathChanged path ->
+            { model with dominionsExePath = Some path }
+        | UserDataDirectoryPathChanged path ->
+            { model with userDataDirectoryPath = Some path }
+    let cmdSaveAndCloseSettings fs settings dispatch =
+        if not (validate settings) then shouldntHappen "Should validate model on the settings page, before allowing user to click the save button"
+        backgroundTask { saveSynchronously fs settings; dispatch (SaveAndCloseSettingsDialog settings) }
+
 let update (fs: FileSystem, ex:ExecutionEngine) msg model =
     match msg with
-    | Dom5ExePathChanged path ->
-        { model with pendingDom5ExePath = Some path; pendingDom5ExePathIsValid = System.IO.File.Exists path }, Cmd.Empty
-    | Dom5ExePathAccept ->
-        if model.pendingDom5ExePathIsValid then
-            // we keep this particular path external to the model, so no changes to model
-            Settings.dom5Path <- model.pendingDom5ExePath
-            Settings.saveFileSettings()
-            fs.initialize()
-        model, Cmd.Empty
-    | Dom5SavesPathChanged path ->
-        { model with pendingDom5SavesPath = Some path; pendingDom5SavesPathIsValid = System.IO.Directory.Exists path && (System.IO.Path.GetFileName path).ToLowerInvariant() = "savedgames" }, Cmd.Empty
-    | Dom5SavesPathAccept ->
-        if model.pendingDom5SavesPathIsValid then
-            // we keep this particular path external to the model, so no changes to model
-            Settings.dom5Saves <- model.pendingDom5SavesPath
-            Settings.saveFileSettings()
-            fs.initialize()
-        model, Cmd.Empty
+    | SaveAndCloseSettingsDialog settings ->
+        { model with settings = settings }, Cmd.Empty
     | FileSystemMsg(NewGame(game)) ->
         { model with games = Map.change game (Option.orElse (Some { name = game; files = []; children = [] })) model.games }, Cmd.Empty
     | FileSystemMsg(NewFile(game, path, nation, fileName, lastWriteTime)) ->
@@ -261,10 +272,7 @@ let viewGames (model: Model) dispatch : IView =
                 ]
         ]
 
-let view (model:Model) dispatch =
-    if dom5Path.IsSome && dom5Saves.IsSome then
-        viewGames model dispatch
-    else
+let viewSettings (model: SettingsModel) dispatch =
         StackPanel.create [
             StackPanel.children [
                 TextBlock.create [
@@ -301,3 +309,9 @@ let view (model:Model) dispatch =
                     ]
                 ]
             ]
+
+let view (model:Model) dispatch =
+    if dom5Path.IsSome && dom5Saves.IsSome then
+        viewGames model dispatch
+    else
+        viewSettings model.settings dispatch
