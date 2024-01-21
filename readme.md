@@ -13,3 +13,7 @@ for every nation you control, then it will create and run multiple new games for
 of the orders you approved. They will show up inside of Dominions as new games and you can view
 the results and get an idea of how good your strategy was, and how much of a role luck played in
 the outcome.
+
+Limitations: due to a bug in Dominions 6 v 6.01, Mandrake does not work well with mods that add new
+monsters including the Debug mod. You must either play without mods or run the generated turns in
+the UI after Mandrake creates them for you.
