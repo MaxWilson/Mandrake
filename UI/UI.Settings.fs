@@ -30,7 +30,7 @@ let saveSynchronously (fs: FileSystem) (model: SettingsModel) =
     else
         domExePath <- Some model.dominionsExePath.validValue
         userDataDirectory <- Some model.userDataDirectoryPath.validValue
-        saveFileSettings()
+        saveFileSettings model
         fs.initialize()
 let init _ = SettingsModel.fresh, Cmd.Empty
 
@@ -41,42 +41,49 @@ let update msg (model: SettingsModel) =
     | UserDataDirectoryPathChanged path ->
         { model with userDataDirectoryPath = validWhen (fun userDataPath -> System.IO.Directory.Exists (Path.Combine(userDataPath, "savedgames"))) path }, Cmd.Empty
 
-let cmdSaveAndCloseSettings fs dispatch settings _ =
+let cmdSaveAndCloseSettings fs dispatch settings =
     if not (validate settings) then shouldntHappen "Should validate model on the settings page, before allowing user to click the save button"
     backgroundTask { saveSynchronously fs settings; dispatch (SaveAndCloseSettingsDialog settings) }
 
-let viewSettings cmdSaveAndClose : IView =
-    Component.create("settings", fun ctx ->
+let viewSettings key cmdSaveAndClose : IView =
+    Component.create(key , fun ctx ->
         let model, dispatch = ctx.useElmish((fun _ -> SettingsModel.fresh, Cmd.Empty), update)
+        let submitted = ctx.useState false
         StackPanel.create [
             StackPanel.children [
-                TextBlock.create [
-                    TextBlock.classes ["title"]
-                    TextBlock.text $"Setup"
+                if submitted.Current then
+                    TextBlock.create [
+                        TextBlock.classes ["title"]
+                        TextBlock.text $"Saving..."
+                        ]
+                else
+                    TextBlock.create [
+                        TextBlock.classes ["title"]
+                        TextBlock.text $"Setup"
+                        ]
+                    TextBlock.create [
+                        TextBlock.classes ["subtitle"]
+                        TextBlock.text $@"Path to Dominions executable, e.g. c:\usr\bin\steam\steamapps\common\Dominions6\Dominions6.exe"
+                        ]
+                    TextBox.create [
+                        TextBlock.classes [if model.dominionsExePath.isValid then "valid" else "invalid"]
+                        TextBox.text (domExePath |> Option.defaultValue "")
+                        TextBox.onTextChanged (fun txt -> dispatch (DomExePathChanged txt))
+                        ]
+                    TextBlock.create [
+                        TextBlock.classes ["subtitle"]
+                        TextBlock.text $@"Path to user data directory, e.g. C:\Users\<userName>\AppData\Roaming\Dominions5"
+                        ]
+                    TextBox.create [
+                        TextBlock.classes [if model.userDataDirectoryPath.isValid then "valid" else "invalid"]
+                        TextBox.text (userDataDirectory |> Option.defaultValue "")
+                        TextBox.onTextChanged (fun txt -> dispatch (UserDataDirectoryPathChanged txt))
+                        ]
+                    Button.create [
+                        Button.content (match model.dominionsExePath, model.userDataDirectoryPath with Valid exePath, Valid userData when Some exePath = domExePath && Some userData = userDataDirectory -> "OK (no changes)" | _ -> "Save and close")
+                        Button.isEnabled (match model.dominionsExePath with Valid path -> true | _ -> false)
+                        Button.onClick ((fun _ -> submitted.Set true; cmdSaveAndClose model |> ignore))
+                        ]
                     ]
-                TextBlock.create [
-                    TextBlock.classes ["subtitle"]
-                    TextBlock.text $@"Path to Dominions executable, e.g. c:\usr\bin\steam\steamapps\common\Dominions6\Dominions6.exe"
-                    ]
-                TextBox.create [
-                    TextBlock.classes [if model.dominionsExePath.isValid then "valid" else "invalid"]
-                    TextBox.text (domExePath |> Option.defaultValue "")
-                    TextBox.onTextChanged (fun txt -> dispatch (DomExePathChanged txt))
-                    ]
-                TextBlock.create [
-                    TextBlock.classes ["subtitle"]
-                    TextBlock.text $@"Path to user data directory, e.g. C:\Users\<userName>\AppData\Roaming\Dominions5"
-                    ]
-                TextBox.create [
-                    TextBlock.classes [if model.userDataDirectoryPath.isValid then "valid" else "invalid"]
-                    TextBox.text (userDataDirectory |> Option.defaultValue "")
-                    TextBox.onTextChanged (fun txt -> dispatch (UserDataDirectoryPathChanged txt))
-                    ]
-                Button.create [
-                    Button.content (match model.dominionsExePath, model.userDataDirectoryPath with Valid exePath, Valid userData when Some exePath = domExePath && Some userData = userDataDirectory -> "OK (no changes)" | _ -> "Save and close")
-                    Button.isEnabled (match model.dominionsExePath with Valid path -> true | _ -> false)
-                    Button.onClick (cmdSaveAndClose model >> ignore)
-                    ]
-                ]
             ]
         )

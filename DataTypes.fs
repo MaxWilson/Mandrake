@@ -74,7 +74,7 @@ module UI =
         with
         member this.Name = (match this.detail with Orders detail -> detail.name |> Option.defaultValue (if detail.index = 1 then detail.nation else detail.nation + detail.index.ToString()) | Trn _ | Other -> this.fileName) // defaults to file path but can be renamed to describe the kind of orders, e.g. kamikaze vs. cautious. Will show up in name of generated games.
         member this.Nation = match this.detail with Orders n -> Some n.nation | Trn nation -> Some nation | Other -> None
-    type Status = NotStarted | InProgress | Complete | Error of msg:string
+    type Status = NotStarted | InProgress | Complete | ErrorState of msg:string
     type Permutation = {
         name: string
         status: Status
@@ -103,10 +103,10 @@ module UI =
         settings: SettingsModel
         }
         with
-        static member fresh: GlobalModel = {
+        static member fresh settings: GlobalModel = {
             games = Map.empty
             autoApprove = false
-            settings = SettingsModel.fresh
+            settings = settings
             }
     type SettingsMsg =
         | UserDataDirectoryPathChanged of string

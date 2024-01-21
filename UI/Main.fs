@@ -31,7 +31,10 @@ let tryLoadMemory() =
         log $"Error loading mandrake.json: {exn}"
         None
 
-let init memory () = (defaultArg memory GlobalModel.fresh), Cmd.Empty
+let init memory ()  =
+    let settings = loadSettings()
+    let model = memory |> Option.defaultWith (fun () -> GlobalModel.fresh settings)
+    { model with settings = settings }, Cmd.Empty
 
 type Permutation = {
     name: string
@@ -122,7 +125,7 @@ let update (fs: FileSystem, ex:ExecutionEngine) msg model =
                             setStatus Complete
                         with exn ->
                             log $"Error processing {newGameName}: {exn}"
-                            setStatus (Error $"Error processing {newGameName}: {exn}")
+                            setStatus (ErrorState $"Error processing {newGameName}: {exn}")
                 } |> ignore
                 )
     | DeleteOrders(gameName, ordersName) ->
@@ -249,7 +252,8 @@ let viewGames (model: GlobalModel) dispatch : IView =
 
 
 let view fs (model:GlobalModel) dispatch =
-    if domExePath.IsSome && userDataDirectory.IsSome then
+    if model.settings.dominionsExePath.isValid && model.settings.userDataDirectoryPath.isValid then
         viewGames model dispatch
     else
-        viewSettings (Settings.cmdSaveAndCloseSettings fs dispatch)
+        let key = $"{model.settings}"
+        viewSettings key (Settings.cmdSaveAndCloseSettings fs dispatch)
